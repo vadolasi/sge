@@ -5,14 +5,20 @@ import {
   BrowserRouter as Router,
   useRoutes,
 } from "react-router-dom"
+import { QueryClient, QueryClientProvider } from "react-query"
+
 import "./index.css"
 import routes from "~react-pages"
 
+const queryClient = new QueryClient()
+
 function App() {
   return (
-    <Suspense fallback={<p>Loading...</p>}>
-      {useRoutes(routes)}
-    </Suspense>
+    <QueryClientProvider client={queryClient}>
+      <Suspense fallback={<p>Loading...</p>}>
+        {useRoutes(routes)}
+      </Suspense>
+    </QueryClientProvider>
   )
 }
 
