@@ -5,7 +5,7 @@ import {
   BrowserRouter as Router,
   useRoutes,
 } from "react-router-dom"
-import { QueryClient, QueryClientProvider } from "react-query"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 
 import "./index.css"
 import routes from "~react-pages"
