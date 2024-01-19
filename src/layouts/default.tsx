@@ -14,10 +14,10 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   return (
     <div className="flex flex-col min-h-screen">
       <header className="px-8 py-4 flex bg-gray-100 sticky top-0 z-10">
-        <div className="flex flex-col gap-0">
+        <Link to="/" className="flex flex-col gap-0">
           <h1 className="font-bold text-xl">Relger</h1>
           <span className="text-sm">Sistema de Relatórios Gerenciais em Energias</span>
-        </div>
+        </Link>
         <NavigationMenu className="ml-auto">
           <NavigationMenuList>
             <NavigationMenuItem >

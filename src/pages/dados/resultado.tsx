@@ -39,7 +39,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
+  SelectValue
 } from "@/components/ui/select"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -52,6 +52,8 @@ import {
   FormLabel,
   FormMessage
 } from "@/components/ui/form"
+import ReactSelect from "react-select"
+import { PieChart } from "@mui/x-charts"
 
 const FormSchema = z.object({
   pageSize: z.number().min(1).max(1000).default(10)
@@ -330,7 +332,7 @@ export default () => {
     <DefaultLayout>
       <Form {...form}>
         <div className="p-8">
-          <h1></h1>
+          <h1 className="text-2xl font-bold mb-4">Resultados</h1>
           <div className="flex items-center pb-4">
             <FormField
               control={form.control}
@@ -455,8 +457,26 @@ export default () => {
               </Button>
             </div>
           </div>
-
-          <h1></h1>
+          <h1 className="text-2xl font-bold mt-4 mb-2">Gráficos</h1>
+          <FormLabel>Selecione os dados a serem exibidos:</FormLabel>
+          <ReactSelect
+            defaultValue={[{ label: "Cenário Nacional - Geração Distribuída", value: "red" }]}
+            isMulti
+            options={[{ label: "Cenário Nacional - Geração Distribuída", value: "red" }, { label: "Empreendimentos Eólicos", value: "blue" }, { label: "Todas as fases dos empreendimentos eólicos do RN", value: "green" }]}
+          />
+          <h2 className="mt-4">Cenário Nacional - Geração Distribuída</h2>
+          <PieChart
+            series={[
+              {
+                data: [
+                  { id: 0, value: 73.4, label: "Brasil" },
+                  { id: 1, value: 26.6, label: "RN" }
+                ]
+              }
+            ]}
+            width={400}
+            height={200}
+          />
         </div>
       </Form>
     </DefaultLayout>
