@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
 import {
   ColumnDef,
@@ -21,6 +23,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import {
+  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -33,7 +36,6 @@ import moment from "moment"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { unpack } from "msgpackr"
 import { useEffect, useMemo, useState } from "react"
-import { Table } from "@/components/Table"
 import {
   Select,
   SelectContent,
@@ -54,6 +56,7 @@ import {
 } from "@/components/ui/form"
 import ReactSelect from "react-select"
 import { PieChart } from "@mui/x-charts"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const FormSchema = z.object({
   pageSize: z.number().min(1).max(1000).default(10)
@@ -246,11 +249,11 @@ export default () => {
     queryKey: ["dados"],
     queryFn: async () => {
       return unpack(new Uint8Array(await fetch(`${import.meta.env.VITE_BACKEND_URL}/dados/`).then(res => res.arrayBuffer()) as ArrayBufferLike))
-        .map((row: any) => {
+        .map((row) => {
           const obj: Dado = {} as Dado
 
           Object.entries(row).forEach(([key, value]) => {
-            // @ts-ignore
+            // @ts-expect-error expression of type 'any' can't be used to index type 'Dado'
             obj[codMap[Number(key)]] = value
           })
 
@@ -384,9 +387,9 @@ export default () => {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <div className="rounded-md border">
+          <ScrollArea className="h-[200px] rounded-md border">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-secondary">
                 {table.getHeaderGroups().map((headerGroup) => (
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => {
@@ -433,7 +436,7 @@ export default () => {
                 )}
               </TableBody>
             </Table>
-          </div>
+          </ScrollArea>
           <div className="flex items-center justify-end space-x-2 py-4">
             <div className="flex-1 text-sm text-muted-foreground">
               Página {pagination.pageIndex + 1} de {table.getPageCount()}
