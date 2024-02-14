@@ -14,6 +14,6 @@ COPY . .
 
 RUN pnpm run build
 
-EXPOSE 4173
+EXPOSE 8080
 
-CMD ["pnpm", "start"]
+CMD ["pnpm", "preview"]
