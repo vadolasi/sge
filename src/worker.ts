@@ -1,4 +1,4 @@
-import { createRxDatabase } from "rxdb"
+import { RxDatabase, createRxDatabase } from "rxdb"
 import { getRxStorageMemory } from "rxdb/plugins/storage-memory"
 import { expose } from "comlink"
 
@@ -54,47 +54,53 @@ const codMap = {
   23: "DscMuninicpios",
 }
 
-const db = await createRxDatabase({
-  name: "db",
-  storage: getRxStorageMemory(),
-  eventReduce: true
-})
+let db: RxDatabase
 
-db.addCollections({
-  empreendimentos: {
-    schema: {
-      version: 0,
-      type: "object",
-      primaryKey: "_id",
-      properties: {
-        _id: { type: "string", maxLength: 5 },
-        NomEmpreendimento: { type: "string" },
-        IdeNucleoCEG: { type: "string", maxLength: 6 },
-        CodCEG: { type: "string", maxLength: 20 },
-        SigUFPrincipal: { type: "string", maxLength: 2 },
-        SigTipoGeracao: { type: "string", maxLength: 3 },
-        DscFaseUsina: { type: "string" },
-        DscOrigemCombustivel: { type: "string" },
-        DscFonteCombustivel: { type: "string" },
-        DscTipoOutorga: { type: "string" },
-        NomFonteCombustivel: { type: "string" },
-        DatEntradaOperacao: { type: "string" },
-        MdaPotenciaOutorgadaKw: { type: "number" },
-        MdaPotenciaFiscalizadaKw: { type: "interger" },
-        MdaGarantiaFisicaKw: { type: "number" },
-        IdcGeracaoQualificada: { type: "boolean" },
-        NumCoordNEmpreendimento: { type: "number" },
-        NumCoordEEmpreendimento: { type: "number" },
-        DatInicioVigencia: { type: "string" },
-        DatFimVigencia: { type: "string" },
-        DscPropriRegimePariticipacao: { type: "string" },
-        DscSubBacia: { type: "string" },
-        DscMuninicpios: { type: "string" }
-      },
-      required: ["_id", "NomEmpreendimento"]
+async function main() {
+  db = await createRxDatabase({
+    name: "db",
+    storage: getRxStorageMemory(),
+    eventReduce: true
+  })
+
+  db.addCollections({
+    empreendimentos: {
+      schema: {
+        version: 0,
+        type: "object",
+        primaryKey: "_id",
+        properties: {
+          _id: { type: "string", maxLength: 5 },
+          NomEmpreendimento: { type: "string" },
+          IdeNucleoCEG: { type: "string", maxLength: 6 },
+          CodCEG: { type: "string", maxLength: 20 },
+          SigUFPrincipal: { type: "string", maxLength: 2 },
+          SigTipoGeracao: { type: "string", maxLength: 3 },
+          DscFaseUsina: { type: "string" },
+          DscOrigemCombustivel: { type: "string" },
+          DscFonteCombustivel: { type: "string" },
+          DscTipoOutorga: { type: "string" },
+          NomFonteCombustivel: { type: "string" },
+          DatEntradaOperacao: { type: "string" },
+          MdaPotenciaOutorgadaKw: { type: "number" },
+          MdaPotenciaFiscalizadaKw: { type: "interger" },
+          MdaGarantiaFisicaKw: { type: "number" },
+          IdcGeracaoQualificada: { type: "boolean" },
+          NumCoordNEmpreendimento: { type: "number" },
+          NumCoordEEmpreendimento: { type: "number" },
+          DatInicioVigencia: { type: "string" },
+          DatFimVigencia: { type: "string" },
+          DscPropriRegimePariticipacao: { type: "string" },
+          DscSubBacia: { type: "string" },
+          DscMuninicpios: { type: "string" }
+        },
+        required: ["_id", "NomEmpreendimento"]
+      }
     }
-  }
-})
+  })
+}
+
+main()
 
 export class DbWorker {
   static async setData(data: Map<keyof typeof codMap, string | number | boolean>[]) {
