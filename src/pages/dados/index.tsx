@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { Button } from "@/components/ui/button"
 import DefaultLayout from "@/layouts/default"
 import { Link } from "react-router-dom"

@@ -1,29 +1,8 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-refresh/only-export-components */
-import * as React from "react"
-import {
-  ColumnDef,
-  ColumnFiltersState,
-  PaginationState,
-  SortingState,
-  VisibilityState,
-  flexRender,
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
-import { ArrowLeft, ArrowRight, ChevronDown } from "lucide-react"
+import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
-import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -33,8 +12,6 @@ import {
 import DefaultLayout from "@/layouts/default"
 import "moment/locale/pt-br"
 import moment from "moment"
-import { useSuspenseQuery } from "@tanstack/react-query"
-import { unpack } from "msgpackr"
 import { useEffect, useMemo, useState } from "react"
 import {
   Select,
@@ -54,214 +31,68 @@ import {
   FormLabel,
   FormMessage
 } from "@/components/ui/form"
-import ReactSelect from "react-select"
 import { PieChart } from "@mui/x-charts"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Table } from "@/components/Table"
+import { unpack } from "msgpackr"
+import { wrap } from "comlink"
+import type { DbWorker, Dado } from "../../worker"
+import { useSuspenseQuery } from "@tanstack/react-query"
+import MultiSelect from "@/components/MultiSelect"
 
 const FormSchema = z.object({
-  pageSize: z.number().min(1).max(1000).default(10)
+  pageSize: z.number().min(1).max(1000).default(10),
+  filters: z.array(z.object({
+    key: z.string(),
+    action: z.union([z.literal("eq"), z.literal("neq"), z.literal("gt"), z.literal("lt"), z.literal("gte"), z.literal("lte"), z.literal("in"), z.literal("nin"), z.literal("contains"), z.literal("ncontains"), z.literal("fulltext")]),
+    value: z.array(z.union([z.string(), z.number(), z.boolean()])).default([]),
+  })).default([]),
 })
 
-type Dado = {
-  _id: string
-  NomEmpreendimento: string
-  IdeNucleoCEG: string
-  CodCEG: string
-  SigUFPrincipal: string
-  SigTipoGeracao: string
-  DscFaseUsina: string
-  DscOrigemCombustivel: string
-  DscFonteCombustivel: string
-  DscTipoOutorga: string
-  NomFonteCombustivel: string
-  DatEntradaOperacao: Date
-  MdaPotenciaOutorgadaKw: number
-  MdaPotenciaFiscalizadaKw: number
-  MdaGarantiaFisicaKw: number
-  IdcGeracaoQualificada: string
-  NumCoordNEmpreendimento: number
-  NumCoordEEmpreendimento: number
-  DatInicioVigencia: Date
-  DatFimVigencia: Date
-  DscPropriRegimePariticipacao: string
-  DscSubBacia: string
-  DscMuninicpios: string
-}
-
-const codMap = {
-  1: "_id",
-  2: "NomEmpreendimento",
-  3: "IdeNucleoCEG",
-  4: "CodCEG",
-  5: "SigUFPrincipal",
-  6: "SigTipoGeracao",
-  7: "DscFaseUsina",
-  8: "DscOrigemCombustivel",
-  9: "DscFonteCombustivel",
-  10: "DscTipoOutorga",
-  11: "NomFonteCombustivel",
-  12: "DatEntradaOperacao",
-  13: "MdaPotenciaOutorgadaKw",
-  14: "MdaPotenciaFiscalizadaKw",
-  15: "MdaGarantiaFisicaKw",
-  16: "IdcGeracaoQualificada",
-  17: "NumCoordNEmpreendimento",
-  18: "NumCoordEEmpreendimento",
-  19: "DatInicioVigencia",
-  20: "DatFimVigencia",
-  21: "DscPropriRegimePariticipacao",
-  22: "DscSubBacia",
-  23: "DscMuninicpios",
-}
-
-export const columns: ColumnDef<Dado>[] = [
-  {
-    accessorKey: "_id",
-    header: "ID",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("_id")}</div>
-  },
-  {
-    accessorKey: "NomEmpreendimento",
-    header: "Nome do Empreendimento",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("NomEmpreendimento")}</div>
-  },
-  {
-    accessorKey: "IdeNucleoCEG",
-    header: "Núcleo CEG",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("IdeNucleoCEG")}</div>
-  },
-  {
-    accessorKey: "CodCEG",
-    header: "Código CEG",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("CodCEG")}</div>
-  },
-  {
-    accessorKey: "SigUFPrincipal",
-    header: "UF",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("SigUFPrincipal")}</div>
-  },
-  {
-    accessorKey: "SigTipoGeracao",
-    header: "Tipo de Geração",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("SigTipoGeracao")}</div>
-  },
-  {
-    accessorKey: "DscFaseUsina",
-    header: "Fase da Usina",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("DscFaseUsina")}</div>
-  },
-  {
-    accessorKey: "DscOrigemCombustivel",
-    header: "Origem do Combustível",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("DscOrigemCombustivel")}</div>
-  },
-  {
-    accessorKey: "DscFonteCombustivel",
-    header: "Fonte do Combustível",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("DscFonteCombustivel")}</div>
-  },
-  {
-    accessorKey: "DscTipoOutorga",
-    header: "Tipo de Outorga",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("DscTipoOutorga")}</div>
-  },
-  {
-    accessorKey: "NomFonteCombustivel",
-    header: "Nome da Fonte do Combustível",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("NomFonteCombustivel")}</div>
-  },
-  {
-    accessorKey: "DatEntradaOperacao",
-    header: "Data de Entrada em Operação",
-    cell: ({ row }) => {
-      const date = row.getValue<Date>("DatEntradaOperacao")
-
-      return <div className="w-max">{moment(date).format("L")}</div>
-    },
-  },
-  {
-    accessorKey: "MdaPotenciaOutorgadaKw",
-    header: "Potência Outorgada (kW)",
-    cell: ({ row }) => <div className="w-max">{row.getValue<number>("MdaPotenciaOutorgadaKw")}</div>
-  },
-  {
-    accessorKey: "MdaPotenciaFiscalizadaKw",
-    header: "Potência Fiscalizada (kW)",
-    cell: ({ row }) => <div className="w-max">{row.getValue<number>("MdaPotenciaFiscalizadaKw")}</div>
-  },
-  {
-    accessorKey: "MdaGarantiaFisicaKw",
-    header: "Garantia Física (kW)",
-    cell: ({ row }) => <div className="w-max">{row.getValue<number>("MdaGarantiaFisicaKw")}</div>
-  },
-  {
-    accessorKey: "IdcGeracaoQualificada",
-    header: "Geração Qualificada",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("IdcGeracaoQualificada")}</div>
-  },
-  {
-    accessorKey: "NumCoordNEmpreendimento",
-    header: "Coordenada N do Empreendimento",
-    cell: ({ row }) => <div className="w-max">{row.getValue<number>("NumCoordNEmpreendimento")}</div>
-  },
-  {
-    accessorKey: "NumCoordEEmpreendimento",
-    header: "Coordenada E do Empreendimento",
-    cell: ({ row }) => <div className="w-max">{row.getValue<number>("NumCoordEEmpreendimento")}</div>
-  },
-  {
-    accessorKey: "DatInicioVigencia",
-    header: "Início da Vigência",
-    cell: ({ row }) => {
-      const date = row.getValue<Date>("DatInicioVigencia")
-
-      return <div className="w-max">{moment(date).format("L")}</div>
-    },
-  },
-  {
-    accessorKey: "DatFimVigencia",
-    header: "Fim da Vigência",
-    cell: ({ row }) => {
-      const date = row.getValue<Date>("DatFimVigencia")
-
-      return <div className="w-max">{moment(date).format("L")}</div>
-    },
-  },
-  {
-    accessorKey: "DscPropriRegimePariticipacao",
-    header: "Proprietário do Regime de Participação",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("DscPropriRegimePariticipacao")}</div>
-  },
-  {
-    accessorKey: "DscSubBacia",
-    header: "Sub-Bacia",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("DscSubBacia")}</div>
-  },
-  {
-    accessorKey: "DscMuninicpios",
-    header: "Municípios",
-    cell: ({ row }) => <div className="w-max">{row.getValue<string>("DscMuninicpios")}</div>
-  }
-]
-
 export default () => {
-  const { data } = useSuspenseQuery<Dado[]>({
+  const db = useMemo(
+    () => wrap<typeof DbWorker>(new Worker(new URL("../../worker", import.meta.url), { type: "module" })),
+    []
+  )
+
+  const { data: loadedData } = useSuspenseQuery({
     queryKey: ["dados"],
-    queryFn: async () => {
-      return unpack(new Uint8Array(await fetch(`${import.meta.env.VITE_BACKEND_URL}/dados/`).then(res => res.arrayBuffer()) as ArrayBufferLike))
-        .map((row) => {
-          const obj: Dado = {} as Dado
-
-          Object.entries(row).forEach(([key, value]) => {
-            // @ts-expect-error expression of type 'any' can't be used to index type 'Dado'
-            obj[codMap[Number(key)]] = value
-          })
-
-          return obj
-        }
+    queryFn: async () =>
+      unpack(
+        new Uint8Array(
+          await fetch(`${import.meta.env.VITE_BACKEND_URL}/dados/`).then(res => res.arrayBuffer()) as ArrayBufferLike
+        )
       )
-    }
   })
+
+  const [loading, setLoading] = useState(true)
+
+  const [data, setData] = useState<Dado[]>([])
+  const [pageSize, setPageSize] = useState(10)
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalItems, setTotalItems] = useState(0)
+  const [ufs, setUfs] = useState<string[]>([])
+  const [selectedUfs, setSelectedUfs] = useState<string[]>([])
+  const [municios, setMunicipios] = useState<string[]>([])
+  const [selectedMunicipios, setSelectedMunicipios] = useState<string[]>([])
+  const [tiposGeracao, setTiposGeracao] = useState<string[]>([])
+  const [selectedTiposGeracao, setSelectedTiposGeracao] = useState<string[]>([])
+  const [origensCombustivel, setOrigensCombustivel] = useState<string[]>([])
+  const [selectedOrigensCombustivel, setSelectedOrigensCombustivel] = useState<string[]>([])
+  const [fontsCombustivel, setFontsCombustivel] = useState<string[]>([])
+  const [selectedFontsCombustivel, setSelectedFontsCombustivel] = useState<string[]>([])
+
+  useEffect(() => {
+    (async () => {
+      await db.setData(loadedData)
+      setTotalItems(await db.getTotal({}))
+      setData(await db.get(currentPage, pageSize, {}))
+      setLoading(false)
+      db.getUfs().then(setUfs)
+      db.getTiposGeracao().then(setTiposGeracao)
+      db.getOrigensCombustivel().then(setOrigensCombustivel)
+      db.getFontesCombustivel().then(setFontsCombustivel)
+    })()
+  }, [])
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -273,69 +104,95 @@ export default () => {
 
   useEffect(() => {
     const subscription = form.watch(({ pageSize }) => {
-      let pageIndex = pagination.pageIndex
+      let pageIndex = currentPage
 
-      if (data.length / (pageSize ?? 10) < pagination.pageIndex) {
+      if (data.length / (pageSize ?? 10) < currentPage) {
         pageIndex = Math.floor(data.length / (pageSize ?? 10))
       }
 
-      setPagination(state => ({
-        ...state,
-        pageSize: pageSize ?? state.pageSize,
-        pageIndex
-      }))
+      setPageSize(pageSize ?? 10)
+      setCurrentPage(pageIndex)
     })
 
     return () => subscription.unsubscribe()
   }, [form.watch])
 
-  const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: 10
-  })
+  useEffect(() => {
+    const filters: Record<string, unknown> = {}
 
-  const pagination = useMemo(
-    () => ({
-      pageIndex,
-      pageSize
-    }),
-    [pageIndex, pageSize]
-  )
-
-  const [sorting, setSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-    []
-  )
-  const [columnVisibility, setColumnVisibility] =
-    React.useState<VisibilityState>({})
-  const [rowSelection, setRowSelection] = React.useState({})
-
-  const table = useReactTable({
-    data: data ?? [],
-    columns,
-    onSortingChange: setSorting,
-    onColumnFiltersChange: setColumnFilters,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
-    onPaginationChange: setPagination,
-    state: {
-      sorting,
-      columnFilters,
-      columnVisibility,
-      rowSelection,
-      pagination
+    if (selectedUfs.length > 0) {
+      filters["SigUFPrincipal"] = { $in: selectedUfs }
     }
-  })
+
+    if (selectedMunicipios.length > 0) {
+      filters["DscMuninicpios"] = { $in: selectedMunicipios }
+    }
+
+    if (selectedTiposGeracao.length > 0) {
+      filters["SigTipoGeracao"] = { $in: selectedTiposGeracao }
+    }
+
+    if (selectedOrigensCombustivel.length > 0) {
+      filters["DscOrigemCombustivel"] = { $in: selectedOrigensCombustivel }
+    }
+
+    if (selectedFontsCombustivel.length > 0) {
+      filters["DscFonteCombustivel"] = { $in: selectedFontsCombustivel }
+    }
+
+    db.getTotal(filters).then(setTotalItems)
+    db.get(currentPage, pageSize, filters)
+      .then(setData)
+  }, [currentPage, pageSize, selectedUfs, selectedMunicipios, selectedTiposGeracao, selectedOrigensCombustivel, selectedFontsCombustivel])
+
+  useEffect(() => {
+    db.getMunicipios(selectedUfs).then(setMunicipios)
+  }, [selectedUfs])
 
   return (
     <DefaultLayout>
       <Form {...form}>
-        <div className="p-8">
+        <div className="p-10">
           <h1 className="text-2xl font-bold mb-4">Resultados</h1>
+          <h2 className="text-xl font-bold">Filtros</h2>
+          <div className="flex flex-wrap gap-4">
+            <MultiSelect
+              entries={ufs.map(uf => ({ label: uf, value: uf }))}
+              selected={selectedUfs}
+              onChange={setSelectedUfs}
+              placeholder="UFs"
+              className="max-w-96"
+            />
+            <MultiSelect
+              entries={municios.map(municipio => ({ label: municipio, value: municipio }))}
+              selected={selectedMunicipios}
+              onChange={setSelectedMunicipios}
+              disabled={selectedUfs.length === 0}
+              placeholder="Municípios"
+              className="max-w-96"
+            />
+            <MultiSelect
+              entries={tiposGeracao.map(tipo => ({ label: tipo, value: tipo }))}
+              selected={selectedTiposGeracao}
+              onChange={setSelectedTiposGeracao}
+              placeholder="Tipos de Geração"
+              className="max-w-96"
+            />
+            <MultiSelect
+              entries={origensCombustivel.map(origem => ({ label: origem, value: origem }))}
+              selected={selectedOrigensCombustivel}
+              onChange={setSelectedOrigensCombustivel}
+              placeholder="Origens do Combustível"
+              className="max-w-96"
+            />
+            <MultiSelect
+              entries={fontsCombustivel.map(font => ({ label: font, value: font }))}
+              selected={selectedFontsCombustivel}
+              onChange={setSelectedFontsCombustivel}
+              placeholder="Fontes do Combustível"
+              className="max-w-96"
+            />
+          </div>
           <div className="flex items-center pb-4">
             <FormField
               control={form.control}
@@ -360,101 +217,102 @@ export default () => {
                 </FormItem>
               )}
             />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="ml-auto">
-                  Colunas <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(!!value)
-                        }
-                      >
-                        {column.id}
-                      </DropdownMenuCheckboxItem>
-                    )
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
-          <ScrollArea className="h-[200px] rounded-md border">
-            <Table>
-              <TableHeader className="sticky top-0 bg-secondary">
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => {
-                      return (
-                        <TableHead key={header.id}>
-                          {header.isPlaceholder
-                            ? null
-                            : flexRender(
-                                header.column.columnDef.header,
-                                header.getContext()
-                              )}
-                        </TableHead>
-                      )
-                    })}
-                  </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {table.getRowModel().rows?.length ? (
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      data-state={row.getIsSelected() && "selected"}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
+          <div className="w-full">
+            <div className="rounded-md border">
+              <div className="max-h-[600px] relative overflow-auto">
+                <Table>
+                  <TableHeader className="sticky top-0 bg-secondary">
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Nome do Empreendimento</TableHead>
+                      <TableHead>Núcleo CEG</TableHead>
+                      <TableHead>Código CEG</TableHead>
+                      <TableHead>UF</TableHead>
+                      <TableHead>Tipo de Geração</TableHead>
+                      <TableHead>Fase da Usina</TableHead>
+                      <TableHead>Origem do Combustível</TableHead>
+                      <TableHead>Fonte do Combustível</TableHead>
+                      <TableHead>Tipo de Outorga</TableHead>
+                      <TableHead>Nome da Fonte do Combustível</TableHead>
+                      <TableHead>Data de Entrada em Operação</TableHead>
+                      <TableHead>Potência Outorgada (kW)</TableHead>
+                      <TableHead>Potência Fiscalizada (kW)</TableHead>
+                      <TableHead>Garantia Física (kW)</TableHead>
+                      <TableHead>Geração Qualificada</TableHead>
+                      <TableHead>Coordenada N do Empreendimento</TableHead>
+                      <TableHead>Coordenada E do Empreendimento</TableHead>
+                      <TableHead>Início da Vigência</TableHead>
+                      <TableHead>Fim da Vigência</TableHead>
+                      <TableHead>Proprietário do Regime de Participação</TableHead>
+                      <TableHead>Sub-Bacia</TableHead>
+                      <TableHead>Municípios</TableHead>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="text-center"
-                    >
-                      No results.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </ScrollArea>
+                  </TableHeader>
+                  <TableBody>
+                    {data.length > 0 ? (
+                      data.map((row) => (
+                        <TableRow
+                          key={row._id}
+                        >
+                          <TableCell>{row._id}</TableCell>
+                          <TableCell>{row.NomEmpreendimento}</TableCell>
+                          <TableCell>{row.IdeNucleoCEG}</TableCell>
+                          <TableCell>{row.CodCEG}</TableCell>
+                          <TableCell>{row.SigUFPrincipal}</TableCell>
+                          <TableCell>{row.SigTipoGeracao}</TableCell>
+                          <TableCell>{row.DscFaseUsina}</TableCell>
+                          <TableCell>{row.DscOrigemCombustivel}</TableCell>
+                          <TableCell>{row.DscFonteCombustivel}</TableCell>
+                          <TableCell>{row.DscTipoOutorga}</TableCell>
+                          <TableCell>{row.NomFonteCombustivel}</TableCell>
+                          <TableCell>{moment(row.DatEntradaOperacao).format("L")}</TableCell>
+                          <TableCell>{row.MdaPotenciaOutorgadaKw}</TableCell>
+                          <TableCell>{row.MdaPotenciaFiscalizadaKw}</TableCell>
+                          <TableCell>{row.MdaGarantiaFisicaKw}</TableCell>
+                          <TableCell>{row.IdcGeracaoQualificada ? "Sim" : "Não"}</TableCell>
+                          <TableCell>{row.NumCoordNEmpreendimento}</TableCell>
+                          <TableCell>{row.NumCoordEEmpreendimento}</TableCell>
+                          <TableCell>{moment(row.DatInicioVigencia).format("L")}</TableCell>
+                          <TableCell>{moment(row.DatFimVigencia).format("L")}</TableCell>
+                          <TableCell>{row.DscPropriRegimePariticipacao}</TableCell>
+                          <TableCell>{row.DscSubBacia}</TableCell>
+                          <TableCell>{row.DscMuninicpios}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell
+                          colSpan={23}
+                          className="text-center"
+                        >
+                          {loading ? "Carregando..." : "Nenhum resultado encontrado."}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center justify-end space-x-2 py-4">
             <div className="flex-1 text-sm text-muted-foreground">
-              Página {pagination.pageIndex + 1} de {table.getPageCount()}
+              Página {currentPage + 1} de {Math.floor(totalItems / pageSize) + 1}
             </div>
             <div className="space-x-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
+                onClick={() => setCurrentPage(state => state - 1)}
+                disabled={currentPage === 0}
               >
                 <ArrowLeft />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
+                onClick={() => setCurrentPage(state => state + 1)}
+                disabled={currentPage === Math.floor(totalItems / pageSize)}
               >
                 <ArrowRight />
               </Button>
@@ -462,13 +320,15 @@ export default () => {
           </div>
           <h1 className="text-2xl font-bold mt-4 mb-2">Gráficos</h1>
           <FormLabel>Selecione os dados a serem exibidos:</FormLabel>
-          <ReactSelect
-            defaultValue={[{ label: "Cenário Nacional - Geração Distribuída", value: "red" }]}
-            isMulti
-            options={[{ label: "Cenário Nacional - Geração Distribuída", value: "red" }, { label: "Empreendimentos Eólicos", value: "blue" }, { label: "Todas as fases dos empreendimentos eólicos do RN", value: "green" }]}
+          <MultiSelect
+            selected={["red"]}
+            entries={[{ label: "Cenário Nacional - Geração Distribuída", value: "red" }, { label: "Empreendimentos Eólicos", value: "blue" }, { label: "Todas as fases dos empreendimentos eólicos do RN", value: "green" }]}
+            onChange={() => { }}
           />
           <h2 className="mt-4">Cenário Nacional - Geração Distribuída</h2>
           <PieChart
+            skipAnimation={true}
+            title="Cenário Nacional - Geração Distribuída"
             series={[
               {
                 data: [
