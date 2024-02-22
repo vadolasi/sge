@@ -7,10 +7,25 @@ import {
   NavigationMenuList,
   navigationMenuTriggerStyle
 } from "@/components/ui/navigation-menu"
-import { Link } from "react-router-dom"
+import { Link, Navigate, useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
 
 const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const token = localStorage.getItem("token")
+  const userType = localStorage.getItem("userType") as "user" | "admin"
+
+  const navigate = useNavigate()
+
+  if (!token) {
+    return <Navigate to="/login" />
+  }
+
+  const logout = () => {
+    localStorage.removeItem("token")
+
+    navigate("/login")
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <header className="px-8 py-4 flex bg-gray-100 sticky top-0 z-10">
@@ -27,11 +42,18 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
+            {userType === "admin" && (
+              <NavigationMenuItem>
+                <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), "bg-gray-100 hover:bg-gray-200")}>
+                  <Link to="/usuarios">
+                    Usuários
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            )}
             <NavigationMenuItem>
-              <NavigationMenuLink asChild className={cn(navigationMenuTriggerStyle(), "bg-gray-100 hover:bg-gray-200")}>
-                <Link to="/relatorios">
-                  Relatórios
-                </Link>
+              <NavigationMenuLink onClick={logout} className={cn(navigationMenuTriggerStyle(), "bg-gray-100 hover:bg-gray-200 cursor-pointer")}>
+                Sair
               </NavigationMenuLink>
             </NavigationMenuItem>
           </NavigationMenuList>

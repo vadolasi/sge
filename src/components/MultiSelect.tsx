@@ -88,9 +88,9 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ entries, selected, onChange, 
           />
         </div>
       </div>
-      <div className="relative mt-2">
-        {open && selectables.length > 0 ?
-          <div className="absolute w-full z-10 top-0 rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in">
+      {open && selectables.length > 0 ? (
+        <div className="relative">
+          <div className="absolute w-full z-10 top-2 rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in">
             <CommandGroup className="max-h-96 overflow-auto">
               {selectables.map((entry) => {
                 return (
@@ -112,8 +112,8 @@ const MultiSelect: React.FC<MultiSelectProps> = ({ entries, selected, onChange, 
               })}
             </CommandGroup>
           </div>
-          : null}
-      </div>
+        </div>
+      ) : null}
     </Command>
   )
 }

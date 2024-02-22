@@ -4,7 +4,7 @@ import path from "path"
 import Pages from "vite-plugin-pages"
 
 export default defineConfig({
-  plugins: [react(), Pages({ importMode: "sync" })],
+  plugins: [react(), Pages({ importMode: "sync", exclude: ["**/_**.{ts,tsx}"] })],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src")
