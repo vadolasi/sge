@@ -1,4 +1,6 @@
 import { GoogleChartWrapperChartType } from "react-google-charts"
+import { Remote } from "comlink"
+import { DbWorker } from "../worker"
 
 export interface Data {
   ufs: string[]
@@ -11,10 +13,12 @@ export interface Data {
 
 export default interface Chart<Args, Props> {
   type: GoogleChartWrapperChartType
-  getArgs: (data: Data) => JSX.Element
-  getData: (args: Args) => Promise<Props>
-  getProps: (props: Props) => Promise<{
-    data: never[]
-    options: Record<string, unknown>
-  }>
+  name: string
+  getArgs: (data: Data & { onComplete: (args: Args) => void }) => JSX.Element
+  getData: (db: Remote<typeof DbWorker>, args: Args) => Promise<Props>
+  getProps: (props: Props, args: Args) => {
+    data: unknown,
+    options: Record<string, unknown>,
+    height?: string
+  }
 }

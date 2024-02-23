@@ -41,14 +41,15 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Label } from "@/components/ui/label"
 import { useQueryParam, ArrayParam, NumberParam, withDefault } from "use-query-params"
 import { useLocation } from "react-router"
-import { Chart } from "react-google-charts"
+import { Chart, GoogleChartWrapperChartType } from "react-google-charts"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
+import charts from "@/charts"
 
 export const options = {
   title: "Todas as fases dos empreendimentos eólicos do RN",
-  vAxis: { title: "Quantidade" },
-  hAxis: { title: "Cidade" },
+  vAxis: { title: "Cidade" },
+  hAxis: { title: "Quantidade" },
   seriesType: "bars"
 };
 
@@ -135,15 +136,21 @@ export default () => {
   const [fontesCombustivel, setFontesCombustivel] = useState<string[]>([])
   const [querySelectedFontesCombustivel, setSelectedFontesCombustivel] = useQueryParam("fonteCombustivel", withDefault(ArrayParam, []))
   const selectedFontesCombustivel = useMemo<string[]>(() => querySelectedFontesCombustivel.filter(font => font !== null) as string[], [querySelectedFontesCombustivel])
-  const [municios, setMunicipios] = useState<string[]>([])
+  const [municipios, setMunicipios] = useState<string[]>([])
   const [querySelectedMunicipios, setSelectedMunicipios] = useQueryParam("municipio", withDefault(ArrayParam, []))
   const selectedMunicipios = useMemo<string[]>(() => querySelectedMunicipios.filter(municipio => municipio !== null) as string[], [querySelectedMunicipios])
-  const [eSelected, setESelected] = useState(false)
-  const [eSelected2, setESelected2] = useState(false)
-  const [eSelected3, setESelected3] = useState(false)
-  const [open, setOpen] = useState(false)
+  const [addGraphOpen, setAddGraphOpen] = useState(false)
+  const [selectedChartToAdd, setSelectedChartToAdd] = useState<string | null>(null)
+  const [enableAddGraph, setEnableAddGraph] = useState(false)
+  const [graphToAddData, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
+  const [graphs, setGraphs] = useState<{
+    type: GoogleChartWrapperChartType,
+    data: never[],
+    options: never,
+    id: string,
+    height?: string
+  }[]>([])
   const [open2, setOpen2] = useState(false)
-  const [graphData, setGraphData] = useState<never[][]>([])
 
   const [querySelectedColumns, setSelectedColumns] = useQueryParam("coluna", withDefault(ArrayParam, []))
   const selectedColumns = useMemo<string[]>(() => querySelectedColumns.filter(column => column !== null) as string[], [querySelectedColumns])
@@ -153,7 +160,6 @@ export default () => {
       await db.setData(loadedData)
       setTotalItems(await db.getTotal({}))
       setData(await db.get(currentPage, pageSize, {}))
-      db.getGraph("RN").then(setGraphData)
       setLoading(false)
       db.getUfs().then(setUfs)
       db.getTiposGeracao().then(setTiposGeracao)
@@ -277,7 +283,7 @@ export default () => {
             <div>
               <Label>Municípios</Label>
               <MultiSelect
-                entries={municios.map(municipio => ({ label: municipio, value: municipio }))}
+                entries={municipios.map(municipio => ({ label: municipio, value: municipio }))}
                 selected={selectedMunicipios}
                 onChange={setSelectedMunicipios}
                 disabled={selectedUfs.length === 0}
@@ -411,51 +417,67 @@ export default () => {
             </div>
           </div>
           <h1 className="text-2xl font-bold mt-4 mb-2">Gráficos</h1>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={addGraphOpen}
+            onOpenChange={value => {
+              if (!value) {
+                setEnableAddGraph(false)
+                setSelectedChartToAdd(null)
+                setGraphToAddData(null)
+              }
+
+              setAddGraphOpen(value)
+            }}
+          >
             <DialogTrigger asChild>
-              <Button onClick={() => setOpen(true)}>Adicionar</Button>
+              <Button onClick={() => setAddGraphOpen(true)}>Adicionar</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Adicionar gráfico</DialogTitle>
               </DialogHeader>
               <Label>Tipo de gráfico</Label>
-              <Select onValueChange={() => setESelected(true)}>
+              <Select value={selectedChartToAdd ?? undefined} onValueChange={setSelectedChartToAdd}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecionar tipo de gráfico" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="qtd_potencia_empreendimentos">Potência e quantitativo dos empreendimentos</SelectItem>
-                  <SelectItem value="fases_empreendimentos">Fases dos empreendimentos</SelectItem>
-                  <SelectItem value="fim_vigencia">Fim da vigência dos empreendimentos</SelectItem>
-                  <SelectItem value="qtv_empreendimentos_investidor">Quantitativo de empreendimentos por investidor</SelectItem>
-                  <SelectItem value="potencia_investidor">Potência (MW) instalada por investidor</SelectItem>
-                  <SelectItem value="potencia_tipo_geracao">Potência (MW) instalada por tipo de geração</SelectItem>
-                  <SelectItem value="qtd_aerogeradores_fabricante">Quantidade de aerogeradores instalados por fabricante</SelectItem>
-                  <SelectItem value="qtd_aerogeradores_modelo">Quantidade de aerogeradores instalados por modelo</SelectItem>
-                  <SelectItem value="modelo_qtd_aerogeradores">Modelo e quantidade de aerogeradores instalados</SelectItem>
-                  <SelectItem value="qtd_torres">Quantitativo de torres eólicas em operação por municípios</SelectItem>
+                  {Object.entries(charts).map(([key, value]) => (
+                    <SelectItem key={key} value={key}>{value.name}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {eSelected && (
-                <Select onValueChange={() => setESelected2(true)}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Selecionar estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ufs.map(uf => (
-                      <SelectItem key={uf} value={uf}>{uf}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
+              {selectedChartToAdd !== null && charts[selectedChartToAdd as keyof typeof charts]?.getArgs({
+                ufs,
+                tiposGeracao,
+                fasesUsina,
+                origensCombustivel,
+                fontesCombustivel,
+                municipios,
+                onComplete: (data) => {
+                  setEnableAddGraph(true)
+                  setGraphToAddData(data as never)
+                }
+              })}
               <DialogFooter>
                 <Button
                   type="submit"
-                  disabled={!eSelected2}
-                  onClick={() => {
-                    setESelected3(true)
-                    setOpen(false)
+                  disabled={!enableAddGraph}
+                  onClick={async () => {
+                    setAddGraphOpen(false)
+                    setEnableAddGraph(false)
+                    const chart = charts[selectedChartToAdd as keyof typeof charts]
+                    const data = await chart.getData(db, graphToAddData as never)
+                    const props = chart.getProps(data, graphToAddData as never)
+                    setGraphs([...graphs, {
+                      id: Math.random().toString(36).substring(7),
+                      type: chart.type,
+                      data: props.data as never[],
+                      options: props.options as never,
+                      height: props.height
+                    }])
+                    setSelectedChartToAdd(null)
+                    setGraphToAddData(null)
                   }}
                 >
                   Salvar
@@ -463,19 +485,16 @@ export default () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          {eSelected3 && (
+          {graphs.map(graph => (
             <Chart
-              chartType="BarChart"
+              key={graph.id}
+              chartType={graph.type}
               width="100%"
-              data={[[
-                "Cidade",
-                "Em operação",
-                "Em construção",
-                "Construção não iniciada"
-              ], ...graphData]}
-              options={options}
+              data={graph.data}
+              options={graph.options}
+              height={graph.height}
             />
-          )}
+          ))}
           <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>
           <div className="flex items-center space-x-2">
             <Dialog open={open2}>

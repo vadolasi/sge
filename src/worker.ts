@@ -1,4 +1,4 @@
-import { ExtractDocumentTypeFromTypedRxJsonSchema, RxDatabase, RxJsonSchema, createRxDatabase, toTypedRxJsonSchema } from "rxdb"
+import { RxCollection, RxDatabase, RxJsonSchema, createRxDatabase } from "rxdb"
 import { getRxStorageMemory } from "rxdb/plugins/storage-memory"
 import { expose } from "comlink"
 
@@ -54,9 +54,33 @@ const codMap = {
   23: "DscMuninicpios",
 }
 
-let db: RxDatabase
+interface DocType {
+  _id: string
+  NomEmpreendimento: string
+  IdeNucleoCEG: string
+  CodCEG: string
+  SigUFPrincipal: string
+  SigTipoGeracao: string
+  DscFaseUsina: string
+  DscOrigemCombustivel: string
+  DscFonteCombustivel: string
+  DscTipoOutorga: string
+  NomFonteCombustivel: string
+  DatEntradaOperacao: string
+  MdaPotenciaOutorgadaKw: number
+  MdaPotenciaFiscalizadaKw: number
+  MdaGarantiaFisicaKw: number
+  IdcGeracaoQualificada: boolean
+  NumCoordNEmpreendimento: number
+  NumCoordEEmpreendimento: number
+  DatInicioVigencia: string
+  DatFimVigencia: string
+  DscPropriRegimePariticipacao: string
+  DscSubBacia: string
+  DscMuninicpios: string
+}
 
-const schemaLiteral: RxJsonSchema<never> = {
+const schema: RxJsonSchema<DocType> = {
   version: 0,
   type: "object",
   primaryKey: "_id",
@@ -86,14 +110,17 @@ const schemaLiteral: RxJsonSchema<never> = {
     DscMuninicpios: { type: "string" }
   },
   required: ["_id", "NomEmpreendimento"]
-} as const
+}
 
-const schemaTyped = toTypedRxJsonSchema(schemaLiteral)
-type DocType = ExtractDocumentTypeFromTypedRxJsonSchema<typeof schemaTyped>
-const schema: RxJsonSchema<DocType> = schemaLiteral
+type MyDatabaseCollections = {
+  empreendimentos: RxCollection<DocType>
+}
+type MyDatabase = RxDatabase<MyDatabaseCollections>
+
+let db: MyDatabase
 
 async function main() {
-  db = await createRxDatabase({
+  db = await createRxDatabase<MyDatabaseCollections>({
     name: "db",
     storage: getRxStorageMemory(),
     eventReduce: true
@@ -110,7 +137,6 @@ export class DbWorker {
       const obj: Dado = {} as Dado
 
       Object.entries(item).forEach(([key, value]) => {
-        // @ts-expect-error expression of type 'any' can't be used to index type 'Dado'
         obj[codMap[Number(key)]] = value
       })
 
@@ -169,7 +195,7 @@ export class DbWorker {
       }
     }).exec()
 
-    return Array.from(new Set(res.map(item => item.toJSON().DscMuninicpios)))
+    return Array.from(new Set(res.map(item => item.DscMuninicpios)))
   }
 
   static async getTotal(filters: Record<string, unknown>) {
@@ -178,7 +204,7 @@ export class DbWorker {
     }).exec()
   }
 
-  static async getGraph(uf: string): Promise<never[][]> {
+  static async getGraph_FasesEmpreendimentos(uf: string): Promise<[string, number, number, number][]> {
     const data = await db.empreendimentos.find({
       selector: {
         SigUFPrincipal: uf
@@ -198,7 +224,17 @@ export class DbWorker {
         construcao,
         construcaoNaoIniciada
       ]
-    }) as never[][]
+    })
+  }
+
+  static async getGraph_DistribuicaoGeografica(uf: string): Promise<[number, number][]> {
+    const data = await db.empreendimentos.find({
+      selector: {
+        SigUFPrincipal: uf
+      }
+    }).exec()
+
+    return data.filter(item => item.NumCoordNEmpreendimento && item.NumCoordEEmpreendimento).map(item => [item.NumCoordNEmpreendimento, item.NumCoordEEmpreendimento])
   }
 }
 

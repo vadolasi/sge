@@ -69,6 +69,7 @@ export default () => {
     } catch (err) {
       // @ts-expect-error toast type
       toast.error(err?.message)
+      setLoading(false)
       return
     }
 
