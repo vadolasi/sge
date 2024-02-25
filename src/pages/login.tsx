@@ -43,8 +43,9 @@ export default () => {
         headers: {
           "Content-Type": "application/json"
         },
+        credentials: "include",
         body: JSON.stringify({
-          username: email,
+          email,
           password
         })
       })
@@ -62,12 +63,8 @@ export default () => {
   const onSubmit = form.handleSubmit(async ({ email, password }) => {
     setLoading(true)
     try {
-      const res = await login({ email, password })
-
-      const token = res.token
-      localStorage.setItem("token", token!)
+      await login({ email, password })
     } catch (err) {
-      // @ts-expect-error toast type
       toast.error(err?.message)
       setLoading(false)
       return

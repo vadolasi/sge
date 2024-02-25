@@ -1,5 +1,5 @@
 import { RxCollection, RxDatabase, RxJsonSchema, createRxDatabase } from "rxdb"
-import { getRxStorageMemory } from "rxdb/plugins/storage-memory"
+import { getRxStorageLoki } from "rxdb/plugins/storage-lokijs"
 import { expose } from "comlink"
 
 export type Dado = {
@@ -122,8 +122,9 @@ let db: MyDatabase
 async function main() {
   db = await createRxDatabase<MyDatabaseCollections>({
     name: "db",
-    storage: getRxStorageMemory(),
-    eventReduce: true
+    storage: getRxStorageLoki(),
+    eventReduce: true,
+    ignoreDuplicate: true
   })
 
   db.addCollections({ empreendimentos: { schema } })
@@ -211,20 +212,25 @@ export class DbWorker {
       }
     }).exec()
 
-    const municipios = Array.from(new Set(data.map(item => item.DscMuninicpios)))
+    const phaseCountsMap = new Map<string, [number, number, number]>();
 
-    return municipios.map(municipio => {
-      const operacao = data.filter(item => item.DscMuninicpios === municipio && item.DscFaseUsina === "Operação").length
-      const construcao = data.filter(item => item.DscMuninicpios === municipio && item.DscFaseUsina === "Construção").length
-      const construcaoNaoIniciada = data.filter(item => item.DscMuninicpios === municipio && item.DscFaseUsina === "Construção não iniciada").length
+    data.forEach(item => {
+      const municipality = item.DscMuninicpios;
+      const phase = item.DscFaseUsina;
+      const phaseCounts = phaseCountsMap.get(municipality) || [0, 0, 0]
 
-      return [
-        municipio,
-        operacao,
-        construcao,
-        construcaoNaoIniciada
-      ]
+      if (phase === "Operação") {
+        phaseCounts[0]++
+      } else if (phase === "Construção") {
+        phaseCounts[1]++
+      } else if (phase === "Construção não iniciada") {
+        phaseCounts[2]++
+      }
+
+      phaseCountsMap.set(municipality, phaseCounts)
     })
+
+    return Array.from(phaseCountsMap.entries()).map(([municipio, counts]) => [municipio, ...counts])
   }
 
   static async getGraph_DistribuicaoGeografica(uf: string): Promise<[number, number][]> {

@@ -30,7 +30,7 @@ const formSchema = z.object({
   cpf: z.string({ required_error: "Este campo é obrigatório" }),
   password: z.string({ required_error: "Este campo é obrigatório" }),
   passwordConfirmation: z.string({ required_error: "Este campo é obrigatório" }),
-  role: z.enum(["Empresa", "Estudante", "Professor", "Secretária"])
+  tipo: z.enum(["2", "3", "4", "5"])
 })
   .refine(data => data.password === data.passwordConfirmation, {
     message: "As senhas não conferem",
@@ -52,18 +52,19 @@ export default () => {
   const navigate = useNavigate()
 
   const { mutateAsync: register } = useMutation<{ token?: string, non_field_errors?: string[] }, never, Omit<z.infer<typeof formSchema>, "passwordConfirmation">>({
-    mutationFn: async ({ email, nome, cpf, role, password }) => {
+    mutationFn: async ({ email, nome, cpf, tipo, password }) => {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/register/`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         body: JSON.stringify({
           username: email,
           email,
           nome,
           cpf,
-          role,
+          tipo: Number(tipo),
           password
         })
       })
@@ -71,23 +72,19 @@ export default () => {
       const data = await response.json() as { token?: string, non_field_errors?: string[] }
 
       if (!response.ok) {
-        throw new Error(data.non_field_errors?.[0] ?? "Erro ao efetuar login")
+        throw new Error(data.non_field_errors?.[0] ?? "Erro ao efetuar cadastro")
       }
 
       return data
     }
   })
 
-  const onSubmit = form.handleSubmit(async ({ email, nome, cpf, role, password }) => {
+  const onSubmit = form.handleSubmit(async ({ email, nome, cpf, tipo, password }) => {
     setLoading(true)
 
     try {
-      const res = await register({ email, nome, cpf, role, password })
-
-      const token = res.token
-      localStorage.setItem("token", token!)
+      await register({ email, nome, cpf, tipo, password })
     } catch (err) {
-      // @ts-expect-error toast type
       toast.error(err?.message)
       setLoading(false)
       return
@@ -169,7 +166,7 @@ export default () => {
           />
           <FormField
             control={form.control}
-            name="role"
+            name="tipo"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipode usuário</FormLabel>
@@ -180,10 +177,10 @@ export default () => {
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Empresa">Empresa</SelectItem>
-                    <SelectItem value="Estudante">Estudante</SelectItem>
-                    <SelectItem value="Professor">Professor</SelectItem>
-                    <SelectItem value="Secretária">Secretária</SelectItem>
+                    <SelectItem value="2">Estudante</SelectItem>
+                    <SelectItem value="3">Professor</SelectItem>
+                    <SelectItem value="4">Empresa</SelectItem>
+                    <SelectItem value="5">Secretária</SelectItem>
                   </SelectContent>
                 </Select>
                 <FormMessage />

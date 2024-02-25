@@ -41,7 +41,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Label } from "@/components/ui/label"
 import { useQueryParam, ArrayParam, NumberParam, withDefault } from "use-query-params"
 import { useLocation } from "react-router"
-import { Chart, GoogleChartWrapperChartType } from "react-google-charts"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import charts from "@/charts"
@@ -110,7 +109,7 @@ export default () => {
     queryFn: async () =>
       unpack(
         new Uint8Array(
-          await fetch(`${import.meta.env.VITE_BACKEND_URL}/dados/${base}`).then(res => res.arrayBuffer()) as ArrayBufferLike
+          await fetch(`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/`, { credentials: "include" }).then(res => res.arrayBuffer()) as ArrayBufferLike
         )
       )
   })
@@ -143,13 +142,7 @@ export default () => {
   const [selectedChartToAdd, setSelectedChartToAdd] = useState<string | null>(null)
   const [enableAddGraph, setEnableAddGraph] = useState(false)
   const [graphToAddData, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
-  const [graphs, setGraphs] = useState<{
-    type: GoogleChartWrapperChartType,
-    data: never[],
-    options: never,
-    id: string,
-    height?: string
-  }[]>([])
+  const [graphs, setGraphs] = useState<{ element: () => JSX.Element, id: string }[]>([])
   const [open2, setOpen2] = useState(false)
 
   const [querySelectedColumns, setSelectedColumns] = useQueryParam("coluna", withDefault(ArrayParam, []))
@@ -468,14 +461,8 @@ export default () => {
                     setEnableAddGraph(false)
                     const chart = charts[selectedChartToAdd as keyof typeof charts]
                     const data = await chart.getData(db, graphToAddData as never)
-                    const props = chart.getProps(data, graphToAddData as never)
-                    setGraphs([...graphs, {
-                      id: Math.random().toString(36).substring(7),
-                      type: chart.type,
-                      data: props.data as never[],
-                      options: props.options as never,
-                      height: props.height
-                    }])
+                    const element = () => chart.getGraph(data, graphToAddData as never)
+                    setGraphs(graphs => [...graphs, { element, id: String(Math.random()) }])
                     setSelectedChartToAdd(null)
                     setGraphToAddData(null)
                   }}
@@ -485,16 +472,9 @@ export default () => {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          {graphs.map(graph => (
-            <Chart
-              key={graph.id}
-              chartType={graph.type}
-              width="100%"
-              data={graph.data}
-              options={graph.options}
-              height={graph.height}
-            />
-          ))}
+          <div className="py-8 flex flex-col gap-8">
+            {graphs.map(({ element: Element, id }) => <Element key={id} />)}
+          </div>
           <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>
           <div className="flex items-center space-x-2">
             <Dialog open={open2}>

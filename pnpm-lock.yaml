@@ -92,6 +92,9 @@ dependencies:
   react-simple-maps:
     specifier: ^3.0.0
     version: 3.0.0(prop-types@15.8.1)(react-dom@18.2.0)(react@18.2.0)
+  react-static-google-map:
+    specifier: ^0.9.0
+    version: 0.9.0
   react-to-print:
     specifier: ^2.15.1
     version: 2.15.1(react-dom@18.2.0)(react@18.2.0)
@@ -5216,6 +5219,15 @@ packages:
     resolution: {integrity: sha512-xWGDIW6x921xtzPkhiULtthJHoJvBbF3q26fzloPCK0hsvxtPVelvftw3zjbHWSkR2km9Z+4uxbDDK/6Zw9B8w==}
     dev: false
 
+  /react-promise@2.0.0(react@18.2.0):
+    resolution: {integrity: sha512-Tzoleo9bA5rSFzAgWI31gyjTO+A7ByMRqVdhL34aEp7XqFRIi6G6Am+tBNSlFeW7+rPyhCVUbDEGj2BL49qWJA==}
+    peerDependencies:
+      react: '*'
+    dependencies:
+      prop-types: 15.8.1
+      react: 18.2.0
+    dev: false
+
   /react-remove-scroll-bar@2.3.4(@types/react@18.2.56)(react@18.2.0):
     resolution: {integrity: sha512-63C4YQBUt0m6ALadE9XV56hV8BgJWDmmTPY758iIJjfQKt2nYwoUrPk0LXRXcB/yIj82T1/Ixfdpdk68LwIB0A==}
     engines: {node: '>=10'}
@@ -5307,6 +5319,14 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       topojson-client: 3.1.0
+    dev: false
+
+  /react-static-google-map@0.9.0:
+    resolution: {integrity: sha512-KmzXMKMHkZP1ZzWcbIrc1634bWLwVMZKtM1quHwIdIIFly0OzTDBm2TGUDpNWDrIq3RCPabANVE6M8gK+5Gd5w==}
+    dependencies:
+      invariant: 2.2.4
+      react: 18.2.0
+      react-promise: 2.0.0(react@18.2.0)
     dev: false
 
   /react-style-singleton@2.2.1(@types/react@18.2.56)(react@18.2.0):

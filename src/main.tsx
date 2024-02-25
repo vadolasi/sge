@@ -13,6 +13,7 @@ import { Toaster } from "@/components/ui/sonner"
 
 import "./index.css"
 import routes from "~react-pages"
+import { UserProvider } from "./lib/auth"
 
 const queryClient = new QueryClient()
 
@@ -20,15 +21,17 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <QueryParamProvider adapter={ReactRouter6Adapter}>
-        <Suspense
-          fallback={(
-            <div className="w-screen h-screen flex justify-center items-center">
-              <div className="animate-spin rounded-full h-24 w-24 border-t-2 border-b-2 border-gray-900"></div>
-            </div>
-          )}
-        >
-          {useRoutes(routes)}
-        </Suspense>
+        <UserProvider>
+          <Suspense
+            fallback={(
+              <div className="w-screen h-screen flex justify-center items-center">
+                <div className="animate-spin rounded-full h-24 w-24 border-t-2 border-b-2 border-gray-900"></div>
+              </div>
+            )}
+          >
+            {useRoutes(routes)}
+          </Suspense>
+        </UserProvider>
       </QueryParamProvider>
       <Toaster />
     </QueryClientProvider>
