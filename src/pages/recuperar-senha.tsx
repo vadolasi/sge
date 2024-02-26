@@ -36,7 +36,7 @@ export default () => {
   /*
   const { mutateAsync: login } = useMutation<never, never, z.infer<typeof formSchema>>({
     mutationFn: async ({ email, password }) => {
-      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api-token-auth`, {
+      const response = await fetch(`${import.meta.env.VITE_PUBLIC_URL}/api-token-auth`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"

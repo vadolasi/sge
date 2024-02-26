@@ -33,9 +33,7 @@ import {
 } from "@/components/ui/form"
 import { Table } from "@/components/Table"
 import { unpack } from "msgpackr"
-import { wrap } from "comlink"
-import type { DbWorker, Dado } from "../../worker"
-import { useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
 import MultiSelect from "@/components/MultiSelect"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -44,6 +42,7 @@ import { useLocation } from "react-router"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import charts from "@/charts"
+import { useUser } from "@/lib/auth"
 
 export const options = {
   title: "Todas as fases dos empreendimentos eólicos do RN",
@@ -60,6 +59,58 @@ const FormSchema = z.object({
     value: z.array(z.union([z.string(), z.number(), z.boolean()])).default([]),
   })).default([]),
 })
+
+const codMap = {
+  1: "_id",
+  2: "NomEmpreendimento",
+  3: "IdeNucleoCEG",
+  4: "CodCEG",
+  5: "SigUFPrincipal",
+  6: "SigTipoGeracao",
+  7: "DscFaseUsina",
+  8: "DscOrigemCombustivel",
+  9: "DscFonteCombustivel",
+  10: "DscTipoOutorga",
+  11: "NomFonteCombustivel",
+  12: "DatEntradaOperacao",
+  13: "MdaPotenciaOutorgadaKw",
+  14: "MdaPotenciaFiscalizadaKw",
+  15: "MdaGarantiaFisicaKw",
+  16: "IdcGeracaoQualificada",
+  17: "NumCoordNEmpreendimento",
+  18: "NumCoordEEmpreendimento",
+  19: "DatInicioVigencia",
+  20: "DatFimVigencia",
+  21: "DscPropriRegimePariticipacao",
+  22: "DscSubBacia",
+  23: "DscMuninicpios",
+}
+
+export type Dado = {
+  _id: string
+  NomEmpreendimento: string
+  IdeNucleoCEG: string
+  CodCEG: string
+  SigUFPrincipal: string
+  SigTipoGeracao: string
+  DscFaseUsina: string
+  DscOrigemCombustivel: string
+  DscFonteCombustivel: string
+  DscTipoOutorga: string
+  NomFonteCombustivel: string
+  DatEntradaOperacao: string
+  MdaPotenciaOutorgadaKw: number
+  MdaPotenciaFiscalizadaKw: number
+  MdaGarantiaFisicaKw: number
+  IdcGeracaoQualificada: boolean
+  NumCoordNEmpreendimento: number
+  NumCoordEEmpreendimento: number
+  DatInicioVigencia: string
+  DatFimVigencia: string
+  DscPropriRegimePariticipacao: string
+  DscSubBacia: string
+  DscMuninicpios: string
+}
 
 const columnsCentralizada: { name: string, selector: string, format?: (data: never) => string }[] = [
   { name: "ID", selector: "_id" },
@@ -99,68 +150,161 @@ export default () => {
     columns = columnsDistribuida
   }
 
-  const db = useMemo(
-    () => wrap<typeof DbWorker>(new Worker(new URL("../../worker", import.meta.url), { type: "module" })),
-    []
-  )
+  const { token } = useUser()
 
-  const { data: loadedData } = useSuspenseQuery({
-    queryKey: ["dados", base],
+  const { data: infos } = useSuspenseQuery<{
+    ufs: string[],
+    tipos_geracao: string[],
+    fases_usina: string[],
+    origens_combustivel: string[],
+    fontes_combustivel: string[]
+  }>({
+    queryKey: ["infos", base],
     queryFn: async () =>
       unpack(
         new Uint8Array(
-          await fetch(`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/`, { credentials: "include" }).then(res => res.arrayBuffer()) as ArrayBufferLike
+          await fetch(
+            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/infos`,
+            {
+              headers: {
+                Authorization: `Token ${token}`
+              }
+            }
+          ).then(res => res.arrayBuffer()) as ArrayBufferLike
         )
       )
   })
-
-  const [loading, setLoading] = useState(true)
 
   const [data, setData] = useState<Dado[]>([])
   const [pageSize, setPageSize] = useQueryParam("items", withDefault(NumberParam, 10))
   const [currentPage, setCurrentPage] = useQueryParam("pagina", withDefault(NumberParam, 0))
   const [totalItems, setTotalItems] = useState(0)
-  const [ufs, setUfs] = useState<string[]>([])
   const [querySelectedUfs, setSelectedUfs] = useQueryParam("uf", withDefault(ArrayParam, []))
   const selectedUfs = useMemo<string[]>(() => querySelectedUfs.filter(uf => uf !== null) as string[], [querySelectedUfs])
-  const [tiposGeracao, setTiposGeracao] = useState<string[]>([])
   const [querySelectedTiposGeracao, setSelectedTiposGeracao] = useQueryParam("tipoGeracao", withDefault(ArrayParam, []))
   const selectedTiposGeracao = useMemo<string[]>(() => querySelectedTiposGeracao.filter(tipo => tipo !== null) as string[], [querySelectedTiposGeracao])
-  const [fasesUsina, setFasesUsina] = useState<string[]>([])
   const [querySelectedFasesUsina, setSelectedFasesUsina] = useQueryParam("faseUsina", withDefault(ArrayParam, []))
   const selectedFasesUsina = useMemo<string[]>(() => querySelectedFasesUsina.filter(fase => fase !== null) as string[], [querySelectedFasesUsina])
-  const [origensCombustivel, setOrigensCombustivel] = useState<string[]>([])
   const [querySelectedOrigensCombustivel, setSelectedOrigensCombustivel] = useQueryParam("origemCombustivel", withDefault(ArrayParam, []))
   const selectedOrigensCombustivel = useMemo<string[]>(() => querySelectedOrigensCombustivel.filter(origem => origem !== null) as string[], [querySelectedOrigensCombustivel])
-  const [fontesCombustivel, setFontesCombustivel] = useState<string[]>([])
   const [querySelectedFontesCombustivel, setSelectedFontesCombustivel] = useQueryParam("fonteCombustivel", withDefault(ArrayParam, []))
   const selectedFontesCombustivel = useMemo<string[]>(() => querySelectedFontesCombustivel.filter(font => font !== null) as string[], [querySelectedFontesCombustivel])
-  const [municipios, setMunicipios] = useState<string[]>([])
   const [querySelectedMunicipios, setSelectedMunicipios] = useQueryParam("municipio", withDefault(ArrayParam, []))
   const selectedMunicipios = useMemo<string[]>(() => querySelectedMunicipios.filter(municipio => municipio !== null) as string[], [querySelectedMunicipios])
   const [addGraphOpen, setAddGraphOpen] = useState(false)
   const [selectedChartToAdd, setSelectedChartToAdd] = useState<string | null>(null)
   const [enableAddGraph, setEnableAddGraph] = useState(false)
-  const [graphToAddData, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
-  const [graphs, setGraphs] = useState<{ element: () => JSX.Element, id: string }[]>([])
+  const [, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
+  const [graphs] = useState<{ element: () => JSX.Element, id: string }[]>([])
   const [open2, setOpen2] = useState(false)
+
+  const { data: empreendimentos } = useQuery<{ count: number, records: Dado[] }>({
+    queryKey: [
+      "dados",
+      base,
+      currentPage,
+      pageSize,
+      selectedUfs.sort().join(","),
+      selectedTiposGeracao.sort().join(","),
+      selectedFasesUsina.sort().join(","),
+      selectedOrigensCombustivel.sort().join(","),
+      selectedFontesCombustivel.sort().join(","),
+      selectedMunicipios.sort().join(",")
+    ],
+    initialData: { count: 0, records: [] },
+    queryFn: async () => {
+      let params = "?"
+
+      if (pageSize) {
+        params += `limit=${pageSize}&`
+      }
+
+      if (currentPage) {
+        params += `page=${currentPage}&`
+      }
+
+      for (const uf of selectedUfs) {
+        params += `uf=${uf}&`
+      }
+
+      for (const tipo of selectedTiposGeracao) {
+        params += `tipo=${tipo}&`
+      }
+
+      for (const fase of selectedFasesUsina) {
+        params += `fase=${fase}&`
+      }
+
+      for (const origem of selectedOrigensCombustivel) {
+        params += `origem=${origem}&`
+      }
+
+      for (const fonte of selectedFontesCombustivel) {
+        params += `fonte=${fonte}&`
+      }
+
+      for (const municipio of selectedMunicipios) {
+        params += `municipio=${municipio}&`
+      }
+
+      params = params.slice(0, -1)
+
+      const data = unpack(
+        new Uint8Array(
+          await fetch(
+            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/${params}`,
+            {
+              headers: {
+                Authorization: `Token ${token}`
+              }
+            }
+          ).then(res => res.arrayBuffer()) as ArrayBufferLike
+        )
+      )
+
+      const records = data.records.map(item => {
+        const obj: Dado = {} as Dado
+
+        Object.entries(item).forEach(([key, value]) => {
+          obj[codMap[Number(key)]] = value
+        })
+
+        return obj
+      })
+
+      return {
+        count: data.count,
+        records
+      }
+    }
+  })
+
+  const { data: municipios } = useQuery<string[]>({
+    queryKey: ["municipios", selectedUfs.sort().join(",")],
+    enabled: infos.ufs.length > 0,
+    initialData: [],
+    queryFn: async () =>
+      unpack(
+        new Uint8Array(
+          await fetch(
+            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/municipios`,
+            {
+              headers: {
+                Authorization: `Token ${token}`
+              }
+            }
+          ).then(res => res.arrayBuffer()) as ArrayBufferLike
+        )
+      )
+  })
 
   const [querySelectedColumns, setSelectedColumns] = useQueryParam("coluna", withDefault(ArrayParam, []))
   const selectedColumns = useMemo<string[]>(() => querySelectedColumns.filter(column => column !== null) as string[], [querySelectedColumns])
 
   useEffect(() => {
-    (async () => {
-      await db.setData(loadedData)
-      setTotalItems(await db.getTotal({}))
-      setData(await db.get(currentPage, pageSize, {}))
-      setLoading(false)
-      db.getUfs().then(setUfs)
-      db.getTiposGeracao().then(setTiposGeracao)
-      db.getFasesUsina().then(setFasesUsina)
-      db.getOrigensCombustivel().then(setOrigensCombustivel)
-      db.getFontesCombustivel().then(setFontesCombustivel)
-    })()
-  }, [])
+    setData(empreendimentos.records)
+    setTotalItems(empreendimentos.count)
+  }, [empreendimentos])
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -184,51 +328,6 @@ export default () => {
 
     return () => subscription.unsubscribe()
   }, [form.watch])
-
-  useEffect(() => {
-    const filters: Record<string, unknown> = {}
-
-    if (selectedUfs.length > 0) {
-      filters["SigUFPrincipal"] = { $in: selectedUfs }
-    }
-
-    if (selectedTiposGeracao.length > 0) {
-      filters["SigTipoGeracao"] = { $in: selectedTiposGeracao }
-    }
-
-    if (selectedFasesUsina.length > 0) {
-      filters["DscFaseUsina"] = { $in: selectedFasesUsina }
-    }
-
-    if (selectedOrigensCombustivel.length > 0) {
-      filters["DscOrigemCombustivel"] = { $in: selectedOrigensCombustivel }
-    }
-
-    if (selectedFontesCombustivel.length > 0) {
-      filters["DscFonteCombustivel"] = { $in: selectedFontesCombustivel }
-    }
-
-    if (selectedMunicipios.length > 0) {
-      filters["DscMuninicpios"] = { $in: selectedMunicipios }
-    }
-
-    db.getTotal(filters).then(setTotalItems)
-    db.get(currentPage, pageSize, filters)
-      .then(setData)
-  }, [
-    currentPage,
-    pageSize,
-    selectedUfs,
-    selectedMunicipios,
-    selectedTiposGeracao,
-    selectedOrigensCombustivel,
-    selectedFontesCombustivel,
-    selectedFasesUsina
-  ])
-
-  useEffect(() => {
-    db.getMunicipios(selectedUfs).then(setMunicipios)
-  }, [selectedUfs])
 
   const visibleColumns = useMemo(
     () => columns.filter(
@@ -267,7 +366,7 @@ export default () => {
             <div>
               <Label>UFs</Label>
               <MultiSelect
-                entries={ufs.map(uf => ({ label: uf, value: uf }))}
+                entries={infos.ufs.map(uf => ({ label: uf, value: uf }))}
                 selected={selectedUfs}
                 onChange={setSelectedUfs}
                 placeholder="UFs"
@@ -286,7 +385,7 @@ export default () => {
             <div>
               <Label>Tipos de Geração</Label>
               <MultiSelect
-                entries={tiposGeracao.map(tipo => ({ label: tipo, value: tipo }))}
+                entries={infos.tipos_geracao.map(tipo => ({ label: tipo, value: tipo }))}
                 selected={selectedTiposGeracao}
                 onChange={setSelectedTiposGeracao}
                 placeholder="Tipos de Geração"
@@ -295,7 +394,7 @@ export default () => {
             <div>
               <Label>Fases da Usina</Label>
               <MultiSelect
-                entries={fasesUsina.map(fase => ({ label: fase, value: fase }))}
+                entries={infos.fases_usina.map(fase => ({ label: fase, value: fase }))}
                 selected={selectedFasesUsina}
                 onChange={setSelectedFasesUsina}
                 placeholder="Fases da Usina"
@@ -304,7 +403,7 @@ export default () => {
             <div>
               <Label>Origens do Combustível</Label>
               <MultiSelect
-                entries={origensCombustivel.map(origem => ({ label: origem, value: origem }))}
+                entries={infos.origens_combustivel.map(origem => ({ label: origem, value: origem }))}
                 selected={selectedOrigensCombustivel}
                 onChange={setSelectedOrigensCombustivel}
                 placeholder="Origens do Combustível"
@@ -313,7 +412,7 @@ export default () => {
             <div>
               <Label>Fontes do Combustível</Label>
               <MultiSelect
-                entries={fontesCombustivel.map(font => ({ label: font, value: font }))}
+                entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
                 selected={selectedFontesCombustivel}
                 onChange={setSelectedFontesCombustivel}
                 placeholder="Fontes do Combustível"
@@ -377,7 +476,7 @@ export default () => {
                           colSpan={23}
                           className="text-center"
                         >
-                          {loading ? "Carregando..." : "Nenhum resultado encontrado."}
+                          Nenhum resultado encontrado.
                         </TableCell>
                       </TableRow>
                     )}
@@ -441,11 +540,11 @@ export default () => {
                 </SelectContent>
               </Select>
               {selectedChartToAdd !== null && charts[selectedChartToAdd as keyof typeof charts]?.getArgs({
-                ufs,
-                tiposGeracao,
-                fasesUsina,
-                origensCombustivel,
-                fontesCombustivel,
+                ufs: infos.ufs,
+                tiposGeracao: infos.tipos_geracao,
+                fasesUsina: infos.fases_usina,
+                origensCombustivel: infos.origens_combustivel,
+                fontesCombustivel: infos.fontes_combustivel,
                 municipios,
                 onComplete: (data) => {
                   setEnableAddGraph(true)
@@ -456,6 +555,7 @@ export default () => {
                 <Button
                   type="submit"
                   disabled={!enableAddGraph}
+                  /*
                   onClick={async () => {
                     setAddGraphOpen(false)
                     setEnableAddGraph(false)
@@ -466,6 +566,7 @@ export default () => {
                     setSelectedChartToAdd(null)
                     setGraphToAddData(null)
                   }}
+                  */
                 >
                   Salvar
                 </Button>

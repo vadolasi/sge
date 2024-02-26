@@ -13,12 +13,16 @@ import { useMutation, useSuspenseQuery } from "@tanstack/react-query"
 import { User, useUser } from "@/lib/auth"
 
 const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token } = useUser()
+
   const { data } = useSuspenseQuery<{ result?: Omit<User, "admin">, error: boolean }>({
     queryKey: ["me"],
 
     queryFn: async () => {
       const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/profile/`, {
-        credentials: "include"
+        headers: {
+          "Authorization": `Token ${token}`
+        }
       })
 
       return { result: await res.json(), error: !res.ok }
@@ -27,20 +31,11 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
   const { mutateAsync: logoutMutation } = useMutation({
     mutationFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/csrf/`, { credentials: "include" })
-      const token = res.headers.get("X-CSRFToken")
-
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/logout/`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "X-CSRFToken": token!
-        }
-      })
+      await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/logout/`, { method: "POST" })
     }
   })
 
-  const { user, setUser } = useUser()
+  const { user, setUser, setToken } = useUser()
 
   const navigate = useNavigate()
 
@@ -53,11 +48,15 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
 
 
   if (data.error) {
+    setUser(null)
+    setToken(null)
     navigate("/login")
   }
 
   const logout = async () => {
     await logoutMutation()
+    setUser(null)
+    setToken(null)
     navigate("/login")
   }
 

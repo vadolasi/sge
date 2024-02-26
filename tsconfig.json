@@ -27,6 +27,6 @@
       ]
     }
   },
-  "include": ["src"],
+  "include": ["src", "pluginHttp2Proxy.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

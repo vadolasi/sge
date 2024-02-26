@@ -16,6 +16,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { toast } from "sonner"
 import { useMutation } from "@tanstack/react-query"
+import { useUser } from "@/lib/auth"
 
 const formSchema = z.object({
   email: z.string({ required_error: "Este campo é obrigatório" }),
@@ -43,9 +44,8 @@ export default () => {
         headers: {
           "Content-Type": "application/json"
         },
-        credentials: "include",
         body: JSON.stringify({
-          email,
+          username: email,
           password
         })
       })
@@ -60,10 +60,16 @@ export default () => {
     }
   })
 
+  const { setToken } = useUser()
+
   const onSubmit = form.handleSubmit(async ({ email, password }) => {
     setLoading(true)
     try {
-      await login({ email, password })
+      const { token } = await login({ email, password })
+
+      if (token) {
+        setToken(token)
+      }
     } catch (err) {
       toast.error(err?.message)
       setLoading(false)
