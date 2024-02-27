@@ -2,9 +2,8 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import type IChart from "./charts"
-import Chart from "react-google-charts"
 
-const DistribuicaoGeografica: IChart<{ uf: string }, [number, number][]> = {
+const DistribuicaoGeografica: IChart<{ uf: string }> = {
   name: "Distribuição geográfica",
   getArgs: ({ ufs, onComplete }) => {
     return (
@@ -25,28 +24,9 @@ const DistribuicaoGeografica: IChart<{ uf: string }, [number, number][]> = {
       </>
     )
   },
-  getData: async (db, { uf }) => {
-    return await db.getGraph_DistribuicaoGeografica(uf)
-  },
-  getGraph: (data, args) => {
-    return (
-      <Chart
-        chartType="GeoChart"
-        width="100%"
-        data={[["Lat", "Lon"], ...data]}
-        options={{
-          title: `Distribuição geográfica dos empreendimentos no ${args.uf}`,
-          region: "BR",
-          resolution: "provinces",
-          displayMode: "markers",
-          dataMode: "regions",
-          fontSize: 12,
-          enableInteractivity: false,
-          async: true
-        }}
-      />
-    )
-  },
+  getUrl: ({ uf }) => {
+    return `${import.meta.env.VITE_BACKEND_URL}/dados/centralizada/distribuicao_geografica/?uf=${uf}`
+  }
 }
 
 export default DistribuicaoGeografica

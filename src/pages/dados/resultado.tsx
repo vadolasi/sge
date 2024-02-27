@@ -20,20 +20,9 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useForm } from "react-hook-form"
-import * as z from "zod"
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage
-} from "@/components/ui/form"
 import { Table } from "@/components/Table"
 import { unpack } from "msgpackr"
-import { useQuery, useSuspenseQuery } from "@tanstack/react-query"
+import { useQuery, useSuspenseQuery, keepPreviousData } from "@tanstack/react-query"
 import MultiSelect from "@/components/MultiSelect"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -50,15 +39,6 @@ export const options = {
   hAxis: { title: "Quantidade" },
   seriesType: "bars"
 };
-
-const FormSchema = z.object({
-  pageSize: z.number().min(1).max(1000).default(10),
-  filters: z.array(z.object({
-    key: z.string(),
-    action: z.union([z.literal("eq"), z.literal("neq"), z.literal("gt"), z.literal("lt"), z.literal("gte"), z.literal("lte"), z.literal("in"), z.literal("nin"), z.literal("contains"), z.literal("ncontains"), z.literal("fulltext")]),
-    value: z.array(z.union([z.string(), z.number(), z.boolean()])).default([]),
-  })).default([]),
-})
 
 const codMap = {
   1: "_id",
@@ -194,11 +174,11 @@ export default () => {
   const [addGraphOpen, setAddGraphOpen] = useState(false)
   const [selectedChartToAdd, setSelectedChartToAdd] = useState<string | null>(null)
   const [enableAddGraph, setEnableAddGraph] = useState(false)
-  const [, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
-  const [graphs] = useState<{ element: () => JSX.Element, id: string }[]>([])
+  const [graphToAddData, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
+  const [graphs, setGraphs] = useState<string[]>([])
   const [open2, setOpen2] = useState(false)
 
-  const { data: empreendimentos } = useQuery<{ count: number, records: Dado[] }>({
+  const { data: empreendimentos, isLoading } = useQuery<{ count: number, records: Dado[] }>({
     queryKey: [
       "dados",
       base,
@@ -211,7 +191,7 @@ export default () => {
       selectedFontesCombustivel.sort().join(","),
       selectedMunicipios.sort().join(",")
     ],
-    initialData: { count: 0, records: [] },
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       let params = "?"
 
@@ -281,13 +261,13 @@ export default () => {
 
   const { data: municipios } = useQuery<string[]>({
     queryKey: ["municipios", selectedUfs.sort().join(",")],
-    enabled: infos.ufs.length > 0,
+    enabled: selectedUfs.length > 0,
     initialData: [],
     queryFn: async () =>
       unpack(
         new Uint8Array(
           await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/municipios`,
+            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/municipios/?ufs=${selectedUfs.sort().join(",")}`,
             {
               headers: {
                 Authorization: `Token ${token}`
@@ -302,32 +282,32 @@ export default () => {
   const selectedColumns = useMemo<string[]>(() => querySelectedColumns.filter(column => column !== null) as string[], [querySelectedColumns])
 
   useEffect(() => {
-    setData(empreendimentos.records)
-    setTotalItems(empreendimentos.count)
+    if (empreendimentos) {
+      setData(empreendimentos.records)
+      setTotalItems(empreendimentos.count)
+    }
   }, [empreendimentos])
 
-  const form = useForm<z.infer<typeof FormSchema>>({
-    resolver: zodResolver(FormSchema),
-    mode: "onChange",
-    defaultValues: {
-      pageSize: 10
-    }
-  })
+  useEffect(() => {
+    setSelectedMunicipios(selectedMunicipios => selectedMunicipios.filter(municipio => municipios.includes(municipio)))
+  }, [municipios])
 
   useEffect(() => {
-    const subscription = form.watch(({ pageSize }) => {
-      let pageIndex = currentPage
+    if (currentPage > Math.floor(totalItems / pageSize)) {
+      setCurrentPage(Math.floor(totalItems / pageSize))
+    }
+  }, [totalItems, currentPage, pageSize])
 
-      if (data.length / (pageSize ?? 10) < currentPage) {
-        pageIndex = Math.floor(data.length / (pageSize ?? 10))
-      }
+  useEffect(() => {
+    let pageIndex = currentPage
 
-      setPageSize(pageSize ?? 10)
-      setCurrentPage(pageIndex)
-    })
+    if (data.length / (pageSize ?? 10) < currentPage) {
+      pageIndex = Math.floor(data.length / (pageSize ?? 10))
+    }
 
-    return () => subscription.unsubscribe()
-  }, [form.watch])
+    setPageSize(pageSize ?? 10)
+    setCurrentPage(pageIndex)
+  }, [pageSize])
 
   const visibleColumns = useMemo(
     () => columns.filter(
@@ -350,253 +330,241 @@ export default () => {
 
   return (
     <DefaultLayout>
-      <Form {...form}>
-        <div className="p-12">
-          <h1 className="text-2xl font-bold mb-4">Resultados</h1>
-          <h2 className="text-xl font-bold">Colunas</h2>
+      <div className="p-12">
+        <h1 className="text-2xl font-bold mb-4">Resultados</h1>
+        <h2 className="text-xl font-bold">Colunas</h2>
+          <MultiSelect
+            entries={columns.map(column => ({ label: column.name, value: column.selector }))}
+            selected={selectedColumns}
+            onChange={setSelectedColumns}
+            placeholder="Selecione as colunas"
+            className="mt-2"
+          />
+        <h2 className="text-xl font-bold mt-4">Filtros</h2>
+        <div className="grid gap-2 mt-1 grid-cols-4">
+          <div>
+            <Label>UFs</Label>
             <MultiSelect
-              entries={columns.map(column => ({ label: column.name, value: column.selector }))}
-              selected={selectedColumns}
-              onChange={setSelectedColumns}
-              placeholder="Selecione as colunas"
-              className="mt-2"
-            />
-          <h2 className="text-xl font-bold mt-4">Filtros</h2>
-          <div className="grid gap-2 mt-1 grid-cols-4">
-            <div>
-              <Label>UFs</Label>
-              <MultiSelect
-                entries={infos.ufs.map(uf => ({ label: uf, value: uf }))}
-                selected={selectedUfs}
-                onChange={setSelectedUfs}
-                placeholder="UFs"
-              />
-            </div>
-            <div>
-              <Label>Municípios</Label>
-              <MultiSelect
-                entries={municipios.map(municipio => ({ label: municipio, value: municipio }))}
-                selected={selectedMunicipios}
-                onChange={setSelectedMunicipios}
-                disabled={selectedUfs.length === 0}
-                placeholder="Municípios"
-              />
-            </div>
-            <div>
-              <Label>Tipos de Geração</Label>
-              <MultiSelect
-                entries={infos.tipos_geracao.map(tipo => ({ label: tipo, value: tipo }))}
-                selected={selectedTiposGeracao}
-                onChange={setSelectedTiposGeracao}
-                placeholder="Tipos de Geração"
-              />
-            </div>
-            <div>
-              <Label>Fases da Usina</Label>
-              <MultiSelect
-                entries={infos.fases_usina.map(fase => ({ label: fase, value: fase }))}
-                selected={selectedFasesUsina}
-                onChange={setSelectedFasesUsina}
-                placeholder="Fases da Usina"
-              />
-            </div>
-            <div>
-              <Label>Origens do Combustível</Label>
-              <MultiSelect
-                entries={infos.origens_combustivel.map(origem => ({ label: origem, value: origem }))}
-                selected={selectedOrigensCombustivel}
-                onChange={setSelectedOrigensCombustivel}
-                placeholder="Origens do Combustível"
-              />
-            </div>
-            <div>
-              <Label>Fontes do Combustível</Label>
-              <MultiSelect
-                entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
-                selected={selectedFontesCombustivel}
-                onChange={setSelectedFontesCombustivel}
-                placeholder="Fontes do Combustível"
-              />
-            </div>
-          </div>
-          <div className="flex items-center pb-4 mt-4">
-            <FormField
-              control={form.control}
-              name="pageSize"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Quantidade de linhas</FormLabel>
-                  <Select onValueChange={data => field.onChange(Number(data))} defaultValue={String(field.value)}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value={String(10)}>10</SelectItem>
-                      <SelectItem value={String(20)}>20</SelectItem>
-                      <SelectItem value={String(50)}>50</SelectItem>
-                      <SelectItem value={String(100)}>100</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              entries={infos.ufs.map(uf => ({ label: uf, value: uf }))}
+              selected={selectedUfs}
+              onChange={setSelectedUfs}
+              placeholder="UFs"
             />
           </div>
-          <div className="w-full">
-            <div className="rounded-md border">
-              <div className="max-h-[600px] relative overflow-auto">
-                <Table>
-                  <TableHeader className="sticky top-0 bg-secondary">
-                    <TableRow>
-                      {visibleColumns.map(column => (
-                        <TableHead key={column.name} className="whitespace-nowrap">
-                          {column.name}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.length > 0 ? (
-                      data.map((row) => (
-                        <TableRow
-                          key={row._id}
-                        >
-                          {visibleColumns.map(column => (
-                            <TableCell key={column.name} className="whitespace-nowrap">
-                              {row[column.selector as never] !== null ? (column.format ? column.format(row[column.selector as never]) : row[column.selector as never]) : "-"}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={23}
-                          className="text-center"
-                        >
-                          Nenhum resultado encontrado.
-                        </TableCell>
+          <div>
+            <Label>Municípios</Label>
+            <MultiSelect
+              entries={municipios.map(municipio => ({ label: municipio, value: municipio }))}
+              selected={selectedMunicipios}
+              onChange={setSelectedMunicipios}
+              disabled={selectedUfs.length === 0}
+              placeholder="Municípios"
+            />
+          </div>
+          <div>
+            <Label>Tipos de Geração</Label>
+            <MultiSelect
+              entries={infos.tipos_geracao.map(tipo => ({ label: tipo, value: tipo }))}
+              selected={selectedTiposGeracao}
+              onChange={setSelectedTiposGeracao}
+              placeholder="Tipos de Geração"
+            />
+          </div>
+          <div>
+            <Label>Fases da Usina</Label>
+            <MultiSelect
+              entries={infos.fases_usina.map(fase => ({ label: fase, value: fase }))}
+              selected={selectedFasesUsina}
+              onChange={setSelectedFasesUsina}
+              placeholder="Fases da Usina"
+            />
+          </div>
+          <div>
+            <Label>Origens do Combustível</Label>
+            <MultiSelect
+              entries={infos.origens_combustivel.map(origem => ({ label: origem, value: origem }))}
+              selected={selectedOrigensCombustivel}
+              onChange={setSelectedOrigensCombustivel}
+              placeholder="Origens do Combustível"
+            />
+          </div>
+          <div>
+            <Label>Fontes do Combustível</Label>
+            <MultiSelect
+              entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
+              selected={selectedFontesCombustivel}
+              onChange={setSelectedFontesCombustivel}
+              placeholder="Fontes do Combustível"
+            />
+          </div>
+        </div>
+        <div className="flex items-center pb-4 mt-4">
+          <div>
+            <Label>Quantidade de linhas</Label>
+            <Select onValueChange={data => setPageSize(Number(data))} defaultValue={String(pageSize)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={String(10)}>10</SelectItem>
+                <SelectItem value={String(20)}>20</SelectItem>
+                <SelectItem value={String(50)}>50</SelectItem>
+                <SelectItem value={String(100)}>100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="w-full">
+          <div className="rounded-md border">
+            <div className="max-h-[600px] relative overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-secondary">
+                  <TableRow>
+                    {visibleColumns.map(column => (
+                      <TableHead key={column.name} className="whitespace-nowrap">
+                        {column.name}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.length > 0 ? (
+                    data.map((row) => (
+                      <TableRow
+                        key={row._id}
+                      >
+                        {visibleColumns.map(column => (
+                          <TableCell key={column.name} className="whitespace-nowrap">
+                            {row[column.selector as never] !== null ? (column.format ? column.format(row[column.selector as never]) : row[column.selector as never]) : "-"}
+                          </TableCell>
+                        ))}
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={23}
+                        className="text-center"
+                      >
+                        Nenhum resultado encontrado.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </div>
-          <div className="flex items-center justify-end space-x-2 py-4">
-            <div className="flex-1 text-sm text-muted-foreground">
-              Página {currentPage + 1} de {Math.floor(totalItems / pageSize) + 1}
-            </div>
-            <div className="space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 0}
-              >
-                <ArrowLeft />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === Math.floor(totalItems / pageSize)}
-              >
-                <ArrowRight />
-              </Button>
-            </div>
+        </div>
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <div className="flex-1 text-sm text-muted-foreground">
+            Página {currentPage + 1} de {Math.floor(totalItems / pageSize) + 1}
           </div>
-          <h1 className="text-2xl font-bold mt-4 mb-2">Gráficos</h1>
-          <Dialog
-            open={addGraphOpen}
-            onOpenChange={value => {
-              if (!value) {
-                setEnableAddGraph(false)
-                setSelectedChartToAdd(null)
-                setGraphToAddData(null)
-              }
+          <div className="space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={isLoading || currentPage === 0}
+            >
+              <ArrowLeft />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={isLoading || currentPage === Math.floor(totalItems / pageSize)}
+            >
+              <ArrowRight />
+            </Button>
+          </div>
+        </div>
+        <h1 className="text-2xl font-bold mt-4 mb-2">Gráficos</h1>
+        <Dialog
+          open={addGraphOpen}
+          onOpenChange={value => {
+            if (!value) {
+              setEnableAddGraph(false)
+              setSelectedChartToAdd(null)
+              setGraphToAddData(null)
+            }
 
-              setAddGraphOpen(value)
-            }}
-          >
+            setAddGraphOpen(value)
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button onClick={() => setAddGraphOpen(true)}>Adicionar</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar gráfico</DialogTitle>
+            </DialogHeader>
+            <Label>Tipo de gráfico</Label>
+            <Select value={selectedChartToAdd ?? undefined} onValueChange={setSelectedChartToAdd}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Selecionar tipo de gráfico" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(charts).map(([key, value]) => (
+                  <SelectItem key={key} value={key}>{value.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedChartToAdd !== null && charts[selectedChartToAdd as keyof typeof charts]?.getArgs({
+              ufs: infos.ufs,
+              tiposGeracao: infos.tipos_geracao,
+              fasesUsina: infos.fases_usina,
+              origensCombustivel: infos.origens_combustivel,
+              fontesCombustivel: infos.fontes_combustivel,
+              municipios,
+              onComplete: (data) => {
+                setEnableAddGraph(true)
+                setGraphToAddData(data as never)
+              }
+            })}
+            <DialogFooter>
+              <Button
+                type="submit"
+                disabled={!enableAddGraph}
+                onClick={async () => {
+                  setAddGraphOpen(false)
+                  setEnableAddGraph(false)
+                  const chart = charts[selectedChartToAdd as keyof typeof charts]
+                  const data = chart.getUrl(graphToAddData as never)
+                  setGraphs(graphs => [...graphs, data])
+                  setSelectedChartToAdd(null)
+                  setGraphToAddData(null)
+                }}
+              >
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <div className="py-8 flex flex-col gap-8">
+          {graphs.map((graph, index) => (
+            <img key={graph} src={graph} alt={`Gráfico ${index}`} />
+          ))}
+        </div>
+        <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>
+        <div className="flex items-center space-x-2">
+          <Dialog open={open2}>
             <DialogTrigger asChild>
-              <Button onClick={() => setAddGraphOpen(true)}>Adicionar</Button>
+              <Button onClick={() => setOpen2(true)}>Gerar relatório em PDF</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Adicionar gráfico</DialogTitle>
+                <DialogTitle>Emitir relatório</DialogTitle>
               </DialogHeader>
-              <Label>Tipo de gráfico</Label>
-              <Select value={selectedChartToAdd ?? undefined} onValueChange={setSelectedChartToAdd}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecionar tipo de gráfico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(charts).map(([key, value]) => (
-                    <SelectItem key={key} value={key}>{value.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedChartToAdd !== null && charts[selectedChartToAdd as keyof typeof charts]?.getArgs({
-                ufs: infos.ufs,
-                tiposGeracao: infos.tipos_geracao,
-                fasesUsina: infos.fases_usina,
-                origensCombustivel: infos.origens_combustivel,
-                fontesCombustivel: infos.fontes_combustivel,
-                municipios,
-                onComplete: (data) => {
-                  setEnableAddGraph(true)
-                  setGraphToAddData(data as never)
-                }
-              })}
+              <Label>Observação</Label>
+              <Textarea></Textarea>
               <DialogFooter>
-                <Button
-                  type="submit"
-                  disabled={!enableAddGraph}
-                  /*
-                  onClick={async () => {
-                    setAddGraphOpen(false)
-                    setEnableAddGraph(false)
-                    const chart = charts[selectedChartToAdd as keyof typeof charts]
-                    const data = await chart.getData(db, graphToAddData as never)
-                    const element = () => chart.getGraph(data, graphToAddData as never)
-                    setGraphs(graphs => [...graphs, { element, id: String(Math.random()) }])
-                    setSelectedChartToAdd(null)
-                    setGraphToAddData(null)
-                  }}
-                  */
-                >
-                  Salvar
-                </Button>
+                <Button type="submit" onClick={() => {toast.success("Relatório gerado com sucesso");setOpen2(false);download()}}>Confirmar</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <div className="py-8 flex flex-col gap-8">
-            {graphs.map(({ element: Element, id }) => <Element key={id} />)}
-          </div>
-          <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>
-          <div className="flex items-center space-x-2">
-            <Dialog open={open2}>
-              <DialogTrigger asChild>
-                <Button onClick={() => setOpen2(true)}>Gerar relatório em PDF</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Emitir relatório</DialogTitle>
-                </DialogHeader>
-                <Label>Observação</Label>
-                <Textarea></Textarea>
-                <DialogFooter>
-                  <Button type="submit" onClick={() => {toast.success("Relatório gerado com sucesso");setOpen2(false);download()}}>Confirmar</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            <Button>Gerar relatório em XLSX</Button>
-          </div>
+          <Button>Gerar relatório em XLSX</Button>
         </div>
-      </Form>
+      </div>
     </DefaultLayout>
   )
 }

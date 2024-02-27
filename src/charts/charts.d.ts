@@ -1,6 +1,3 @@
-import { Remote } from "comlink"
-import { DbWorker } from "../worker"
-
 export interface Data {
   ufs: string[]
   tiposGeracao: string[]
@@ -10,9 +7,8 @@ export interface Data {
   municipios: string[]
 }
 
-export default interface IChart<Args, Props> {
+export default interface IChart<Args> {
   name: string
   getArgs: (data: Data & { onComplete: (args: Args) => void }) => JSX.Element
-  getData: (db: Remote<typeof DbWorker>, args: Args) => Promise<Props>
-  getGraph: (props: Props, args: Args) => JSX.Element
+  getUrl: (args: Args) => string
 }
