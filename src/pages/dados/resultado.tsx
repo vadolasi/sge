@@ -32,6 +32,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import charts from "@/charts"
 import { useUser } from "@/lib/auth"
+import Image from "@/components/Image"
 
 export const options = {
   title: "Todas as fases dos empreendimentos eólicos do RN",
@@ -175,7 +176,7 @@ export default () => {
   const [selectedChartToAdd, setSelectedChartToAdd] = useState<string | null>(null)
   const [enableAddGraph, setEnableAddGraph] = useState(false)
   const [graphToAddData, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
-  const [graphs, setGraphs] = useState<string[]>([])
+  const [graphs, setGraphs] = useState<{ name: string, url: string }[]>([])
   const [open2, setOpen2] = useState(false)
 
   const { data: empreendimentos, isLoading } = useQuery<{ count: number, records: Dado[] }>({
@@ -530,7 +531,8 @@ export default () => {
                   setEnableAddGraph(false)
                   const chart = charts[selectedChartToAdd as keyof typeof charts]
                   const data = chart.getUrl(graphToAddData as never)
-                  setGraphs(graphs => [...graphs, data])
+                  const title = chart.getTitle(graphToAddData as never)
+                  setGraphs(graphs => [...graphs, { name: title, url: data }])
                   setSelectedChartToAdd(null)
                   setGraphToAddData(null)
                 }}
@@ -540,9 +542,21 @@ export default () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <div className="py-8 flex flex-col gap-8">
-          {graphs.map((graph, index) => (
-            <img key={graph} src={graph} alt={`Gráfico ${index}`} />
+        <div className="py-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {graphs.map(graph => (
+            <div key={graph.url} className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-center">{graph.name}</Label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setGraphs(graphs => graphs.filter(g => g.url !== graph.url))}
+                >
+                  Remover
+                </Button>
+              </div>
+              <Image src={graph.url} alt={graph.name} />
+            </div>
           ))}
         </div>
         <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>

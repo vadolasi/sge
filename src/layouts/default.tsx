@@ -42,16 +42,13 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   useEffect(() => {
     if (data.result) {
       setUser({ ...data.result, admin: data.result.tipo === 1 })
+    } else if (data.error) {
+      setUser(null)
+      setToken(null)
+      navigate("/login")
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.result])
-
-
-  if (data.error) {
-    setUser(null)
-    setToken(null)
-    navigate("/login")
-  }
+  }, [data])
 
   const logout = async () => {
     await logoutMutation()

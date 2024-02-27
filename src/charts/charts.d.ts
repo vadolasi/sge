@@ -11,4 +11,5 @@ export default interface IChart<Args> {
   name: string
   getArgs: (data: Data & { onComplete: (args: Args) => void }) => JSX.Element
   getUrl: (args: Args) => string
+  getTitle: (args: Args) => string
 }

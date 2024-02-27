@@ -27,6 +27,7 @@ const FasesEmpreendimentos: IChart<{ uf: string }> = {
   getUrl: ({ uf }) => {
     return `${import.meta.env.VITE_BACKEND_URL}/dados/centralizada/fases_empreendimentos/?uf=${uf}`
   },
+  getTitle: ({ uf }) => `Fases dos empreendimentos - ${uf}`,
 }
 
 export default FasesEmpreendimentos

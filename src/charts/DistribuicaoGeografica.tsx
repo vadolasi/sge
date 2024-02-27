@@ -26,7 +26,8 @@ const DistribuicaoGeografica: IChart<{ uf: string }> = {
   },
   getUrl: ({ uf }) => {
     return `${import.meta.env.VITE_BACKEND_URL}/dados/centralizada/distribuicao_geografica/?uf=${uf}`
-  }
+  },
+  getTitle: ({ uf }) => `Distribuição geográfica - ${uf}`,
 }
 
 export default DistribuicaoGeografica
