@@ -177,7 +177,24 @@ export default () => {
   const [enableAddGraph, setEnableAddGraph] = useState(false)
   const [graphToAddData, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
   const [graphs, setGraphs] = useState<{ name: string, url: string }[]>([])
-  const [open2, setOpen2] = useState(false)
+  const [pdfOpen, setPdfOpen] = useState(false)
+  const [xlsxOpen, setXlsxOpen] = useState(false)
+
+  const download = async (url: string, filename: string) => {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Token ${token}`
+      }
+    })
+
+    const blob = await res.blob()
+    const link = document.createElement("a")
+    link.href = URL.createObjectURL(blob)
+    link.download = filename
+    link.click()
+
+    URL.revokeObjectURL(link.href)
+  }
 
   const { data: empreendimentos, isLoading } = useQuery<{ count: number, records: Dado[] }>({
     queryKey: [
@@ -318,16 +335,6 @@ export default () => {
     ),
     [selectedColumns]
   )
-
-  const download = async () => {
-    const blob = new Blob(["a".repeat(3100000)], { type: "application/pdf" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = "relatorio.pdf"
-    a.click()
-    URL.revokeObjectURL(url)
-  }
 
   return (
     <DefaultLayout>
@@ -561,9 +568,9 @@ export default () => {
         </div>
         <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>
         <div className="flex items-center space-x-2">
-          <Dialog open={open2}>
+          <Dialog open={pdfOpen} onOpenChange={setPdfOpen}>
             <DialogTrigger asChild>
-              <Button onClick={() => setOpen2(true)}>Gerar relatório em PDF</Button>
+              <Button onClick={() => setPdfOpen(true)}>Gerar relatório em PDF</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -572,11 +579,75 @@ export default () => {
               <Label>Observação</Label>
               <Textarea></Textarea>
               <DialogFooter>
-                <Button type="submit" onClick={() => {toast.success("Relatório gerado com sucesso");setOpen2(false);download()}}>Confirmar</Button>
+                <Button
+                  type="submit"
+                  onClick={() => {
+                    setPdfOpen(false)
+                    toast.promise(
+                      download(
+                        `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_pdf?${new URLSearchParams({
+                          ufs: selectedUfs.join(","),
+                          tipos_geracao: selectedTiposGeracao.join(","),
+                          fases_usina: selectedFasesUsina.join(","),
+                          origens_combustivel: selectedOrigensCombustivel.join(","),
+                          fontes_combustivel: selectedFontesCombustivel.join(","),
+                          municipios: selectedMunicipios.join(",")
+                        })}`,
+                        "relatorio.pdf"
+                      ),
+                      {
+                        loading: "Gerando relatório...",
+                        success: "Relatório gerado com sucesso!",
+                        error: "Erro ao gerar relatório!"
+                      }
+                    )
+                  }}
+                >
+                  Confirmar
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          <Button>Gerar relatório em XLSX</Button>
+          <Dialog open={xlsxOpen} onOpenChange={setXlsxOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => setXlsxOpen(true)}>Gerar relatório em XLSX</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Emitir relatório</DialogTitle>
+              </DialogHeader>
+              <Label>Observação</Label>
+              <Textarea></Textarea>
+              <DialogFooter>
+                <Button
+                  type="submit"
+                  onClick={() => {
+                    setXlsxOpen(false)
+                    toast.promise(
+                      download(
+                        `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_xlsx?${new URLSearchParams({
+                          ufs: selectedUfs.join(","),
+                          tipos_geracao: selectedTiposGeracao.join(","),
+                          fases_usina: selectedFasesUsina.join(","),
+                          origens_combustivel: selectedOrigensCombustivel.join(","),
+                          fontes_combustivel: selectedFontesCombustivel.join(","),
+                          municipios: selectedMunicipios.join(",")
+                        })}`,
+                        "relatorio.xlsx"
+                      ),
+                      {
+                        loading: "Gerando relatório...",
+                        success: "Relatório gerado com sucesso!",
+                        error: "Erro ao gerar relatório!"
+                      }
+                    )
+                  }}
+                >
+                  Confirmar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </DefaultLayout>
