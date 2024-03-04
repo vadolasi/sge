@@ -50,7 +50,7 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       <header className="px-8 py-4 flex bg-gray-100 sticky top-0 z-10">
         <Link to="/" className="flex flex-col gap-0">
           <h1 className="font-bold text-xl">SGE</h1>
-          <span className="text-sm">Sistema de Gerenciais em Energias</span>
+          <span className="text-sm">Sistema de Gerenciamento em Energias</span>
         </Link>
         <NavigationMenu className="ml-auto">
           <NavigationMenuList>
