@@ -5,26 +5,25 @@ import { Label } from "./ui/label"
 import { Textarea } from "./ui/textarea"
 import { toast } from "sonner"
 import { useUser } from "@/lib/auth"
-import { Select, SelectContent, SelectItem, SelectValue, SelectTrigger } from "./ui/select"
 
 interface Props {
   url: string
   filename: string
-  ufs: string[]
   title: string
 }
 
-const RelatoryDialog: React.FC<Props> = ({ url, filename, ufs, title }) => {
+const RelatoryDialog: React.FC<Props> = ({ url, filename, title }) => {
   const [open, setOpen] = useState(false)
-  const [uf, setUf] = useState<string | undefined>(undefined)
   const { token } = useUser()
+  const [obs, setObs] = useState("")
 
   const download = async () => {
-    const res = await fetch(`${url}?uf=${uf}`, {
+    const res = await fetch(`${url}`, {
       headers: {
         Authorization: `Token ${token}`
       }
     })
+    setObs("")
 
     const blob = await res.blob()
     const link = document.createElement("a")
@@ -44,26 +43,11 @@ const RelatoryDialog: React.FC<Props> = ({ url, filename, ufs, title }) => {
         <DialogHeader>
           <DialogTitle>Emitir relatório</DialogTitle>
         </DialogHeader>
-        <Label>UF</Label>
-        <Select
-          value={uf}
-          onValueChange={setUf}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione a UF" />
-          </SelectTrigger>
-          <SelectContent>
-            {ufs.map(uf => (
-              <SelectItem key={uf} value={uf}>{uf}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <Label>Observação</Label>
-        <Textarea></Textarea>
+        <Textarea value={obs} onChange={e => setObs(e.target.value)} />
         <DialogFooter>
           <Button
             type="submit"
-            disabled={!uf}
             onClick={() => {
               setOpen(false)
               toast.promise(

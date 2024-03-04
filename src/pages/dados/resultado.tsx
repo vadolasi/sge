@@ -24,14 +24,20 @@ import { Table } from "@/components/Table"
 import { unpack } from "msgpackr"
 import { useQuery, useSuspenseQuery, keepPreviousData } from "@tanstack/react-query"
 import MultiSelect from "@/components/MultiSelect"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { useQueryParam, ArrayParam, NumberParam, withDefault } from "use-query-params"
+import { useQueryParam, ArrayParam, NumberParam, withDefault, StringParam } from "use-query-params"
 import { useLocation } from "react-router"
 import charts from "@/charts"
-import { useUser } from "@/lib/auth"
 import Image from "@/components/Image"
 import RelatoryDialog from "@/components/RelatoryDialog"
+import request from "@/lib/request"
+import usePagination from "@/lib/usePagination"
+import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem } from "@/components/ui/pagination"
+import { Checkbox } from "@/components/ui/checkbox"
+import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
+import { useForm, useFieldArray } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
 
 export const options = {
   title: "Todas as fases dos empreendimentos eólicos do RN",
@@ -39,32 +45,6 @@ export const options = {
   hAxis: { title: "Quantidade" },
   seriesType: "bars"
 };
-
-const codMap = {
-  1: "_id",
-  2: "NomEmpreendimento",
-  3: "IdeNucleoCEG",
-  4: "CodCEG",
-  5: "SigUFPrincipal",
-  6: "SigTipoGeracao",
-  7: "DscFaseUsina",
-  8: "DscOrigemCombustivel",
-  9: "DscFonteCombustivel",
-  10: "DscTipoOutorga",
-  11: "NomFonteCombustivel",
-  12: "DatEntradaOperacao",
-  13: "MdaPotenciaOutorgadaKw",
-  14: "MdaPotenciaFiscalizadaKw",
-  15: "MdaGarantiaFisicaKw",
-  16: "IdcGeracaoQualificada",
-  17: "NumCoordNEmpreendimento",
-  18: "NumCoordEEmpreendimento",
-  19: "DatInicioVigencia",
-  20: "DatFimVigencia",
-  21: "DscPropriRegimePariticipacao",
-  22: "DscSubBacia",
-  23: "DscMuninicpios",
-}
 
 export type Dado = {
   _id: string
@@ -104,21 +84,62 @@ const columnsCentralizada: { name: string, selector: string, format?: (data: nev
   { name: "Fonte do Combustível", selector: "DscFonteCombustivel" },
   { name: "Tipo de Outorga", selector: "DscTipoOutorga" },
   { name: "Nome da Fonte do Combustível", selector: "NomFonteCombustivel" },
-  { name: "Data de Entrada em Operação", selector: "DatEntradaOperacao", format: (data: string) => moment(data).format("L") },
+  { name: "Data de Entrada em Operação", selector: "DatEntradaOperacao", format: (data: number) => moment.unix(Number(data)).format("L") },
   { name: "Potência Outorgada (kW)", selector: "MdaPotenciaOutorgadaKw" },
   { name: "Potência Fiscalizada (kW)", selector: "MdaPotenciaFiscalizadaKw" },
   { name: "Garantia Física (kW)", selector: "MdaGarantiaFisicaKw" },
   { name: "Geração Qualificada", selector: "IdcGeracaoQualificada", format: (data: boolean) => data ? "Sim" : "Não" },
   { name: "Coordenada N do Empreendimento", selector: "NumCoordNEmpreendimento" },
   { name: "Coordenada E do Empreendimento", selector: "NumCoordEEmpreendimento" },
-  { name: "Início da Vigência", selector: "DatInicioVigencia", format: (data: string) => moment(data).format("L") },
-  { name: "Fim da Vigência", selector: "DatFimVigencia", format: (data: string) => moment(data).format("L") },
+  { name: "Início da Vigência", selector: "DatInicioVigencia", format: (data: number) => moment.unix(Number(data)).format("L") },
+  { name: "Fim da Vigência", selector: "DatFimVigencia", format: (data: number) => moment.unix(Number(data)).format("L") },
   { name: "Proprietário do Regime de Participação", selector: "DscPropriRegimePariticipacao" },
   { name: "Sub-Bacia", selector: "DscSubBacia" },
   { name: "Municípios", selector: "DscMuninicpios" }
 ]
 
 const columnsDistribuida: { name: string, selector: string, format?: (data: never) => string }[] = []
+
+interface FilterableColumn {
+  id: string
+  type: "select" | "date" | "number" | "boolean" | "multiSelect"
+  label: string
+  fixed?: boolean
+}
+
+const filterableColumns: FilterableColumn[] = [
+  { id: "uf", type: "select", label: "UF", fixed: true },
+  { id: "municipio", type: "multiSelect", label: "Municípios" },
+  { id: "tipoGeracao", type: "multiSelect", label: "Tipos de Geração" },
+  { id: "faseUsina", type: "multiSelect", label: "Fases da Usina" },
+  { id: "origemCombustivel", type: "multiSelect", label: "Origens do Combustível" },
+  { id: "fonteCombustivel", type: "multiSelect", label: "Fontes do Combustível" },
+  { id: "potenciaOutorgada", type: "number", label: "Potência Outorgada" },
+  { id: "potenciaFiscalizada", type: "number", label: "Potência Fiscalizada" },
+  { id: "garantiaFisica", type: "number", label: "Garantia Física" },
+  { id: "geracaoQualificada", type: "boolean", label: "Geração Qualificada" },
+  { id: "inicioVigencia", type: "date", label: "Início da Vigência" },
+  { id: "fimVigencia", type: "date", label: "Fim da Vigência" },
+  { id: "proprietarioRegimeParticipacao", type: "select", label: "Proprietário do Regime de Participação" },
+  { id: "subBacia", type: "select", label: "Sub-Bacia" }
+]
+
+const schema = z.object({
+  filters: z.array(
+    z.object({
+      id: z.string(),
+      comparator: z.enum(["eq", "neq", "gt", "lt", "gte", "lte", "in", "nin"]),
+      value: z.union([
+        z.string(),
+        z.array(z.string()),
+        z.number(),
+        z.boolean()
+      ])
+    })
+  )
+})
+
+type Filter = z.infer<typeof schema>
 
 export default () => {
   const { search } = useLocation()
@@ -130,7 +151,18 @@ export default () => {
     columns = columnsDistribuida
   }
 
-  const { token } = useUser()
+  const filterForm = useForm<Filter>({
+    resolver: zodResolver(schema),
+    mode: "onBlur",
+    defaultValues: {
+      filters: []
+    }
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control: filterForm.control,
+    name: "filters"
+  })
 
   const { data: infos } = useSuspenseQuery<{
     ufs: string[],
@@ -140,27 +172,28 @@ export default () => {
     fontes_combustivel: string[]
   }>({
     queryKey: ["infos", base],
-    queryFn: async () =>
-      unpack(
+    queryFn: async () => {
+      const data = unpack(
         new Uint8Array(
-          await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/infos`,
-            {
-              headers: {
-                Authorization: `Token ${token}`
-              }
-            }
-          ).then(res => res.arrayBuffer()) as ArrayBufferLike
+          await request(`/dados/${base}/infos`).then(res => res.arrayBuffer()) as ArrayBufferLike
         )
       )
+
+      return {
+        ufs: data[0],
+        tipos_geracao: data[1],
+        fases_usina: data[2],
+        origens_combustivel: data[3],
+        fontes_combustivel: data[4]
+      }
+    }
   })
 
   const [data, setData] = useState<Dado[]>([])
   const [pageSize, setPageSize] = useQueryParam("items", withDefault(NumberParam, 10))
   const [currentPage, setCurrentPage] = useQueryParam("pagina", withDefault(NumberParam, 0))
+  const [state, setState] = useQueryParam("estado", withDefault(StringParam, "RN"))
   const [totalItems, setTotalItems] = useState(0)
-  const [querySelectedUfs, setSelectedUfs] = useQueryParam("uf", withDefault(ArrayParam, []))
-  const selectedUfs = useMemo<string[]>(() => querySelectedUfs.filter(uf => uf !== null) as string[], [querySelectedUfs])
   const [querySelectedTiposGeracao, setSelectedTiposGeracao] = useQueryParam("tipoGeracao", withDefault(ArrayParam, []))
   const selectedTiposGeracao = useMemo<string[]>(() => querySelectedTiposGeracao.filter(tipo => tipo !== null) as string[], [querySelectedTiposGeracao])
   const [querySelectedFasesUsina, setSelectedFasesUsina] = useQueryParam("faseUsina", withDefault(ArrayParam, []))
@@ -171,108 +204,75 @@ export default () => {
   const selectedFontesCombustivel = useMemo<string[]>(() => querySelectedFontesCombustivel.filter(font => font !== null) as string[], [querySelectedFontesCombustivel])
   const [querySelectedMunicipios, setSelectedMunicipios] = useQueryParam("municipio", withDefault(ArrayParam, []))
   const selectedMunicipios = useMemo<string[]>(() => querySelectedMunicipios.filter(municipio => municipio !== null) as string[], [querySelectedMunicipios])
-  const [addGraphOpen, setAddGraphOpen] = useState(false)
-  const [selectedChartToAdd, setSelectedChartToAdd] = useState<string | null>(null)
-  const [enableAddGraph, setEnableAddGraph] = useState(false)
-  const [graphToAddData, setGraphToAddData] = useState<Record<string, unknown> | null>(null)
   const [graphs, setGraphs] = useState<{ name: string, url: string }[]>([])
 
-  const { data: empreendimentos, isLoading } = useQuery<{ count: number, records: Dado[] }>({
+  const pages = usePagination({ currentPage, pageSize, totalCount: totalItems })
+
+  const paramsString = new URLSearchParams([
+    ["uf", state],
+    ...selectedTiposGeracao.map(tipo => ["tipo", tipo]),
+    ...selectedFasesUsina.map(fase => ["fase", fase]),
+    ...selectedOrigensCombustivel.map(origem => ["origem", origem]),
+    ...selectedFontesCombustivel.map(fonte => ["fonte", fonte]),
+    ...selectedMunicipios.map(municipio => ["municipio", municipio])
+  ]).toString()
+
+  const { data: empreendimentos } = useQuery<{ count: number, records: Dado[] }>({
     queryKey: [
       "dados",
       base,
       currentPage,
       pageSize,
-      selectedUfs.sort().join(","),
-      selectedTiposGeracao.sort().join(","),
-      selectedFasesUsina.sort().join(","),
-      selectedOrigensCombustivel.sort().join(","),
-      selectedFontesCombustivel.sort().join(","),
-      selectedMunicipios.sort().join(",")
+      paramsString
     ],
     placeholderData: keepPreviousData,
     queryFn: async () => {
-      let params = "?"
-
-      if (pageSize) {
-        params += `limit=${pageSize}&`
-      }
-
-      if (currentPage) {
-        params += `page=${currentPage}&`
-      }
-
-      for (const uf of selectedUfs) {
-        params += `uf=${uf}&`
-      }
-
-      for (const tipo of selectedTiposGeracao) {
-        params += `tipo=${tipo}&`
-      }
-
-      for (const fase of selectedFasesUsina) {
-        params += `fase=${fase}&`
-      }
-
-      for (const origem of selectedOrigensCombustivel) {
-        params += `origem=${origem}&`
-      }
-
-      for (const fonte of selectedFontesCombustivel) {
-        params += `fonte=${fonte}&`
-      }
-
-      for (const municipio of selectedMunicipios) {
-        params += `municipio=${municipio}&`
-      }
-
-      params = params.slice(0, -1)
-
       const data = unpack(
         new Uint8Array(
-          await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/${params}`,
-            {
-              headers: {
-                Authorization: `Token ${token}`
-              }
-            }
-          ).then(res => res.arrayBuffer()) as ArrayBufferLike
+          await request(`/dados/${base}/?${paramsString}&limit=${pageSize}&page=${currentPage}`).then(res => res.arrayBuffer()) as ArrayBufferLike
         )
       )
 
-      const records = data.records.map(item => {
-        const obj: Dado = {} as Dado
-
-        Object.entries(item).forEach(([key, value]) => {
-          obj[codMap[Number(key)]] = value
-        })
-
-        return obj
-      })
-
       return {
-        count: data.count,
-        records
+        records: data[0].map((record: never[]) => {
+          return {
+            _id: record[0],
+            NomEmpreendimento: record[1],
+            IdeNucleoCEG: record[2],
+            CodCEG: record[3],
+            SigUFPrincipal: record[4],
+            SigTipoGeracao: record[5],
+            DscFaseUsina: record[6],
+            DscOrigemCombustivel: record[7],
+            DscFonteCombustivel: record[8],
+            DscTipoOutorga: record[9],
+            NomFonteCombustivel: record[10],
+            DatEntradaOperacao: record[11],
+            MdaPotenciaOutorgadaKw: record[12],
+            MdaPotenciaFiscalizadaKw: record[13],
+            MdaGarantiaFisicaKw: record[14],
+            IdcGeracaoQualificada: record[15],
+            NumCoordNEmpreendimento: record[16],
+            NumCoordEEmpreendimento: record[17],
+            DatInicioVigencia: record[18],
+            DatFimVigencia: record[19],
+            DscPropriRegimePariticipacao: record[20],
+            DscSubBacia: record[21],
+            DscMuninicpios: record[22]
+          }
+        }),
+        count: data[1]
       }
     }
   })
 
   const { data: municipios } = useQuery<string[]>({
-    queryKey: ["municipios", selectedUfs.sort().join(",")],
-    enabled: selectedUfs.length > 0,
+    queryKey: ["municipios", state],
     initialData: [],
     queryFn: async () =>
       unpack(
         new Uint8Array(
-          await fetch(
-            `${import.meta.env.VITE_BACKEND_URL}/dados/${base}/municipios/?ufs=${selectedUfs.sort().join(",")}`,
-            {
-              headers: {
-                Authorization: `Token ${token}`
-              }
-            }
-          ).then(res => res.arrayBuffer()) as ArrayBufferLike
+          await request(`/dados/${base}/municipios/?ufs=${state}`).then(res => res.arrayBuffer()) as ArrayBufferLike
         )
       )
   })
@@ -317,6 +317,16 @@ export default () => {
     [selectedColumns]
   )
 
+  const args = {
+    ufs: infos.ufs,
+    tiposGeracao: infos.tipos_geracao,
+    fasesUsina: infos.fases_usina,
+    origensCombustivel: infos.origens_combustivel,
+    fontesCombustivel: infos.fontes_combustivel,
+    municipios,
+    search: paramsString
+  }
+
   return (
     <DefaultLayout>
       <div className="p-12">
@@ -332,13 +342,19 @@ export default () => {
         <h2 className="text-xl font-bold mt-4">Filtros</h2>
         <div className="grid gap-2 mt-1 grid-cols-4">
           <div>
-            <Label>UFs</Label>
-            <MultiSelect
-              entries={infos.ufs.map(uf => ({ label: uf, value: uf }))}
-              selected={selectedUfs}
-              onChange={setSelectedUfs}
-              placeholder="UFs"
-            />
+            <Label>UF</Label>
+            <Select value={state} onValueChange={setState}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {infos.ufs.map(uf => (
+                  <SelectItem key={uf} value={uf}>
+                    {uf}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Municípios</Label>
@@ -346,7 +362,6 @@ export default () => {
               entries={municipios.map(municipio => ({ label: municipio, value: municipio }))}
               selected={selectedMunicipios}
               onChange={setSelectedMunicipios}
-              disabled={selectedUfs.length === 0}
               placeholder="Municípios"
             />
           </div>
@@ -375,6 +390,24 @@ export default () => {
               selected={selectedOrigensCombustivel}
               onChange={setSelectedOrigensCombustivel}
               placeholder="Origens do Combustível"
+            />
+          </div>
+          <div>
+            <Label>Fontes do Combustível</Label>
+            <MultiSelect
+              entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
+              selected={selectedFontesCombustivel}
+              onChange={setSelectedFontesCombustivel}
+              placeholder="Fontes do Combustível"
+            />
+          </div>
+          <div>
+            <Label>Fontes do Combustível</Label>
+            <MultiSelect
+              entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
+              selected={selectedFontesCombustivel}
+              onChange={setSelectedFontesCombustivel}
+              placeholder="Fontes do Combustível"
             />
           </div>
           <div>
@@ -446,111 +479,94 @@ export default () => {
         </div>
         <div className="flex items-center justify-end space-x-2 py-4">
           <div className="flex-1 text-sm text-muted-foreground">
-            Página {currentPage + 1} de {Math.floor(totalItems / pageSize) + 1}
+            {totalItems} resultados
           </div>
           <div className="space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(currentPage - 1)}
-              disabled={isLoading || currentPage === 0}
-            >
-              <ArrowLeft />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage(currentPage + 1)}
-              disabled={isLoading || currentPage === Math.floor(totalItems / pageSize)}
-            >
-              <ArrowRight />
-            </Button>
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <Button variant="ghost" onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 0}>
+                    <ArrowLeft />
+                  </Button>
+                </PaginationItem>
+                {pages.map((page, index) => page === "..." ? (
+                  <PaginationEllipsis key={index} />
+                ) : (
+                  <PaginationItem key={page}>
+                    <Button
+                      onClick={() => setCurrentPage(page as number - 1)}
+                      variant={currentPage === page as number - 1 ? "outline" : "ghost"}
+                    >
+                      {(page as number)}
+                    </Button>
+                  </PaginationItem>
+                ))}
+                <PaginationItem>
+                  <Button variant="ghost" onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === Math.floor(totalItems / pageSize)}>
+                    <ArrowRight />
+                  </Button>
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
           </div>
         </div>
         <h1 className="text-2xl font-bold mt-4 mb-2">Gráficos</h1>
-        <Dialog
-          open={addGraphOpen}
-          onOpenChange={value => {
-            if (!value) {
-              setEnableAddGraph(false)
-              setSelectedChartToAdd(null)
-              setGraphToAddData(null)
-            }
-
-            setAddGraphOpen(value)
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button onClick={() => setAddGraphOpen(true)}>Adicionar</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Adicionar gráfico</DialogTitle>
-            </DialogHeader>
-            <Label>Tipo de gráfico</Label>
-            <Select value={selectedChartToAdd ?? undefined} onValueChange={setSelectedChartToAdd}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Selecionar tipo de gráfico" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(charts).map(([key, value]) => (
-                  <SelectItem key={key} value={key}>{value.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {selectedChartToAdd !== null && charts[selectedChartToAdd as keyof typeof charts]?.getArgs({
-              ufs: infos.ufs,
-              tiposGeracao: infos.tipos_geracao,
-              fasesUsina: infos.fases_usina,
-              origensCombustivel: infos.origens_combustivel,
-              fontesCombustivel: infos.fontes_combustivel,
-              municipios,
-              onComplete: (data) => {
-                setEnableAddGraph(true)
-                setGraphToAddData(data as never)
-              }
-            })}
-            <DialogFooter>
-              <Button
-                type="submit"
-                disabled={!enableAddGraph}
-                onClick={async () => {
-                  setAddGraphOpen(false)
-                  setEnableAddGraph(false)
-                  const chart = charts[selectedChartToAdd as keyof typeof charts]
-                  const data = chart.getUrl(graphToAddData as never)
-                  const title = chart.getTitle(graphToAddData as never)
-                  setGraphs(graphs => [...graphs, { name: title, url: data }])
-                  setSelectedChartToAdd(null)
-                  setGraphToAddData(null)
-                }}
-              >
-                Salvar
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        <div className="py-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {graphs.map(graph => (
-            <div key={graph.url} className="flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-center">{graph.name}</Label>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setGraphs(graphs => graphs.filter(g => g.url !== graph.url))}
-                >
-                  Remover
-                </Button>
-              </div>
-              <Image src={graph.url} alt={graph.name} />
-            </div>
+        <div className="flex gap-2">
+          {Object.entries(charts).map(([key, value]) => (
+            <Label key={key} className="text-center flex items-center justify-center gap-1">
+              <Checkbox
+                checked={graphs.some(g => g.url === value.getUrl(args))}
+                onCheckedChange={checked =>
+                  setGraphs(graphs =>
+                    checked
+                      ? [
+                          ...graphs,
+                          {
+                            name: value.getTitle(args),
+                            url: value.getUrl(args)
+                          }
+                        ]
+                      : graphs.filter(g => g.url !== value.getUrl(args))
+                  )
+                }
+              />
+              {value.getTitle(args)}
+            </Label>
           ))}
         </div>
+        <ResponsiveMasonry
+          columnsCountBreakPoints={{ 350: 1, 900: 2 }}
+        >
+          <Masonry>
+            {graphs.map(graph => (
+              <div key={graph.url} className="flex flex-col gap-2 p-1">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-center">{graph.name}</Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setGraphs(graphs => graphs.filter(g => g.url !== graph.url))}
+                  >
+                    Remover
+                  </Button>
+                </div>
+                <Image src={`${graph.url}?${paramsString}`} alt={graph.name} />
+              </div>
+            ))}
+          </Masonry>
+        </ResponsiveMasonry>
         <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>
         <div className="flex items-center space-x-2">
-          <RelatoryDialog url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_pdf`} filename="relatorio.pdf" ufs={infos.ufs} title="Emitir relatório em PDF" />
-          <RelatoryDialog url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_xlsx`} filename="relatorio.xlsx" ufs={infos.ufs} title="Emitir relatório em XLSX" />
+          <RelatoryDialog
+            url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_pdf?${paramsString}`}
+            filename="relatorio.pdf"
+            title="Emitir relatório em PDF"
+          />
+          <RelatoryDialog
+            url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_xlsx?${paramsString}`}
+            filename="relatorio.xlsx"
+            title="Emitir relatório em XLSX"
+          />
         </div>
       </div>
     </DefaultLayout>

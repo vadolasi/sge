@@ -19,9 +19,9 @@ const queryClient = new QueryClient()
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <QueryParamProvider adapter={ReactRouter6Adapter}>
-        <UserProvider>
+    <UserProvider>
+      <QueryClientProvider client={queryClient}>
+        <QueryParamProvider adapter={ReactRouter6Adapter}>
           <Suspense
             fallback={(
               <div className="w-screen h-screen flex justify-center items-center">
@@ -31,10 +31,10 @@ function App() {
           >
             {useRoutes(routes)}
           </Suspense>
-        </UserProvider>
-      </QueryParamProvider>
-      <Toaster />
-    </QueryClientProvider>
+        </QueryParamProvider>
+        <Toaster />
+      </QueryClientProvider>
+    </UserProvider>
   )
 }
 

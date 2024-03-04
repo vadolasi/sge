@@ -5,11 +5,11 @@ export interface Data {
   origensCombustivel: string[]
   fontesCombustivel: string[]
   municipios: string[]
+  search: string
 }
 
-export default interface IChart<Args> {
+export default interface IChart {
   name: string
-  getArgs: (data: Data & { onComplete: (args: Args) => void }) => JSX.Element
-  getUrl: (args: Args) => string
-  getTitle: (args: Args) => string
+  getUrl: (data: Data) => string
+  getTitle: (data: Data) => string
 }

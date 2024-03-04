@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React, { useEffect } from "react"
 import logoPpgusrn from "@/assets/logo_ppgusrn.png"
 import {
@@ -9,51 +10,38 @@ import {
 } from "@/components/ui/navigation-menu"
 import { Link, useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
-import { useMutation, useSuspenseQuery } from "@tanstack/react-query"
+import { useSuspenseQuery } from "@tanstack/react-query"
 import { User, useUser } from "@/lib/auth"
+import request from "@/lib/request"
 
 const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token } = useUser()
-
   const { data } = useSuspenseQuery<{ result?: Omit<User, "admin">, error: boolean }>({
     queryKey: ["me"],
-
     queryFn: async () => {
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/profile/`, {
-        headers: {
-          "Authorization": `Token ${token}`
-        }
-      })
+      const res = await request(`/auth/profile/`)
 
       return { result: await res.json(), error: !res.ok }
     }
   })
 
-  const { mutateAsync: logoutMutation } = useMutation({
-    mutationFn: async () => {
-      await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/logout/`, { method: "POST" })
-    }
-  })
-
-  const { user, setUser, setToken } = useUser()
-
-  const navigate = useNavigate()
-
   useEffect(() => {
-    if (data.result) {
+    if (data?.result?.nome) {
       setUser({ ...data.result, admin: data.result.tipo === 1 })
-    } else if (data.error) {
+    } else {
       setUser(null)
       setToken(null)
+      setRefreshToken(null)
       navigate("/login")
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data])
 
+  const navigate = useNavigate()
+  const { user, setUser, setToken, setRefreshToken } = useUser()
+
   const logout = async () => {
-    await logoutMutation()
     setUser(null)
     setToken(null)
+    setRefreshToken(null)
     navigate("/login")
   }
 
@@ -61,8 +49,8 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
     <div className="flex flex-col min-h-screen">
       <header className="px-8 py-4 flex bg-gray-100 sticky top-0 z-10">
         <Link to="/" className="flex flex-col gap-0">
-          <h1 className="font-bold text-xl">Relger</h1>
-          <span className="text-sm">Sistema de Relatórios Gerenciais em Energias</span>
+          <h1 className="font-bold text-xl">SGE</h1>
+          <span className="text-sm">Sistema de Gerenciais em Energias</span>
         </Link>
         <NavigationMenu className="ml-auto">
           <NavigationMenuList>

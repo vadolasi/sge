@@ -37,7 +37,7 @@ export default () => {
 
   const [loading, setLoading] = useState(false)
 
-  const { mutateAsync: login } = useMutation<{ token?: string, non_field_errors?: string[] }, never, z.infer<typeof formSchema>>({
+  const { mutateAsync: login } = useMutation<{ access?: string, refresh?: string, non_field_errors?: string[] }, never, z.infer<typeof formSchema>>({
     mutationFn: async ({ email, password }) => {
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/auth/login/`, {
         method: "POST",
@@ -45,7 +45,7 @@ export default () => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          username: email,
+          email,
           password
         })
       })
@@ -60,15 +60,16 @@ export default () => {
     }
   })
 
-  const { setToken } = useUser()
+  const { setToken, setRefreshToken } = useUser()
 
   const onSubmit = form.handleSubmit(async ({ email, password }) => {
     setLoading(true)
     try {
-      const { token } = await login({ email, password })
+      const { access, refresh } = await login({ email, password })
 
-      if (token) {
-        setToken(token)
+      if (access && refresh) {
+        setToken(access)
+        setRefreshToken(refresh)
       }
     } catch (err) {
       toast.error(err?.message)
