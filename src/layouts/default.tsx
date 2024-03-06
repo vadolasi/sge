@@ -83,7 +83,7 @@ const DefaultLayout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
       </main>
       <footer className="w-full flex gap-2 p-2 items-center flex-shrink-0 border-t">
         <img src={logoPpgusrn} alt="Logo PPGUSRN" className="w-32 hidden md:block" />
-        <span className="text-sm">©2023 | Desenvolvido por Joyce Aline Oliva Rodrigues Alves.</span>
+        <span className="text-sm">©2024</span>
       </footer>
     </div>
   )

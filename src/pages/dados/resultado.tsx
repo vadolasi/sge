@@ -359,7 +359,7 @@ export default () => {
           <div>
             <Label>Municípios</Label>
             <MultiSelect
-              entries={municipios.map(municipio => ({ label: municipio, value: municipio }))}
+              entries={municipios.sort().map(municipio => ({ label: municipio, value: municipio }))}
               selected={selectedMunicipios}
               onChange={setSelectedMunicipios}
               placeholder="Municípios"
@@ -390,24 +390,6 @@ export default () => {
               selected={selectedOrigensCombustivel}
               onChange={setSelectedOrigensCombustivel}
               placeholder="Origens do Combustível"
-            />
-          </div>
-          <div>
-            <Label>Fontes do Combustível</Label>
-            <MultiSelect
-              entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
-              selected={selectedFontesCombustivel}
-              onChange={setSelectedFontesCombustivel}
-              placeholder="Fontes do Combustível"
-            />
-          </div>
-          <div>
-            <Label>Fontes do Combustível</Label>
-            <MultiSelect
-              entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
-              selected={selectedFontesCombustivel}
-              onChange={setSelectedFontesCombustivel}
-              placeholder="Fontes do Combustível"
             />
           </div>
           <div>
@@ -539,17 +521,8 @@ export default () => {
         >
           <Masonry>
             {graphs.map(graph => (
-              <div key={graph.url} className="flex flex-col gap-2 p-1">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="text-center">{graph.name}</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setGraphs(graphs => graphs.filter(g => g.url !== graph.url))}
-                  >
-                    Remover
-                  </Button>
-                </div>
+              <div key={graph.url} className="flex flex-col gap-2">
+                <Label className="text-center text-lg mt-2">{graph.name}</Label>
                 <Image src={`${graph.url}?${paramsString}`} alt={graph.name} />
               </div>
             ))}
