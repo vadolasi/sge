@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-refresh/only-export-components */
-import { ArrowLeft, ArrowRight } from "lucide-react"
+import { ArrowLeft, ArrowRight, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   TableBody,
@@ -20,6 +20,14 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { Table } from "@/components/Table"
 import { unpack } from "msgpackr"
 import { useQuery, useSuspenseQuery, keepPreviousData } from "@tanstack/react-query"
@@ -38,13 +46,7 @@ import Masonry, { ResponsiveMasonry } from "react-responsive-masonry"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-
-export const options = {
-  title: "Todas as fases dos empreendimentos eólicos do RN",
-  vAxis: { title: "Cidade" },
-  hAxis: { title: "Quantidade" },
-  seriesType: "bars"
-};
+import { Input } from "@/components/ui/input"
 
 export type Dado = {
   _id: string
@@ -72,72 +74,78 @@ export type Dado = {
   DscMuninicpios: string
 }
 
-const columnsCentralizada: { name: string, selector: string, format?: (data: never) => string }[] = [
-  { name: "ID", selector: "_id" },
-  { name: "Nome do Empreendimento", selector: "NomEmpreendimento" },
-  { name: "Núcleo CEG", selector: "IdeNucleoCEG" },
-  { name: "Código CEG", selector: "CodCEG" },
-  { name: "UF", selector: "SigUFPrincipal" },
-  { name: "Tipo de Geração", selector: "SigTipoGeracao" },
-  { name: "Fase da Usina", selector: "DscFaseUsina" },
-  { name: "Origem do Combustível", selector: "DscOrigemCombustivel" },
-  { name: "Fonte do Combustível", selector: "DscFonteCombustivel" },
-  { name: "Tipo de Outorga", selector: "DscTipoOutorga" },
-  { name: "Nome da Fonte do Combustível", selector: "NomFonteCombustivel" },
-  { name: "Data de Entrada em Operação", selector: "DatEntradaOperacao", format: (data: number) => moment.unix(Number(data)).format("L") },
-  { name: "Potência Outorgada (kW)", selector: "MdaPotenciaOutorgadaKw" },
-  { name: "Potência Fiscalizada (kW)", selector: "MdaPotenciaFiscalizadaKw" },
-  { name: "Garantia Física (kW)", selector: "MdaGarantiaFisicaKw" },
-  { name: "Geração Qualificada", selector: "IdcGeracaoQualificada", format: (data: boolean) => data ? "Sim" : "Não" },
-  { name: "Coordenada N do Empreendimento", selector: "NumCoordNEmpreendimento" },
-  { name: "Coordenada E do Empreendimento", selector: "NumCoordEEmpreendimento" },
-  { name: "Início da Vigência", selector: "DatInicioVigencia", format: (data: number) => moment.unix(Number(data)).format("L") },
-  { name: "Fim da Vigência", selector: "DatFimVigencia", format: (data: number) => moment.unix(Number(data)).format("L") },
-  { name: "Proprietário do Regime de Participação", selector: "DscPropriRegimePariticipacao" },
-  { name: "Sub-Bacia", selector: "DscSubBacia" },
-  { name: "Municípios", selector: "DscMuninicpios" }
-]
+const columnsCentralizada: Record<string, { name: string, format?: (data: never) => string }> = {
+  _id: { name: "ID" },
+  NomEmpreendimento: { name: "Nome do Empreendimento" },
+  IdeNucleoCEG: { name: "Núcleo CEG" },
+  CodCEG: { name: "Código CEG" },
+  SigUFPrincipal: { name: "UF" },
+  SigTipoGeracao: { name: "Tipo de Geração" },
+  DscFaseUsina: { name: "Fase da Usina" },
+  DscOrigemCombustivel: { name: "Origem do Combustível" },
+  DscFonteCombustivel: { name: "Fonte do Combustível" },
+  DscTipoOutorga: { name: "Tipo de Outorga" },
+  NomFonteCombustivel: { name: "Nome da Fonte do Combustível" },
+  DatEntradaOperacao:{ name: "Data de Entrada em Operação", format: (data: number) => moment.unix(Number(data)).format("L") },
+  MdaPotenciaOutorgadaKw: { name: "Potência Outorgada (kW)" },
+  MdaPotenciaFiscalizadaKw: { name: "Potência Fiscalizada (kW)" },
+  MdaGarantiaFisicaKw: { name: "Garantia Física (kW)" },
+  IdcGeracaoQualificada: { name: "Geração Qualificada", format: (data: boolean) => data ? "Sim" : "Não" },
+  NumCoordNEmpreendimento: { name: "Coordenada N do Empreendimento" },
+  NumCoordEEmpreendimento: { name: "Coordenada E do Empreendimento" },
+  DatInicioVigencia: { name: "Início da Vigência", format: (data: number) => moment.unix(Number(data)).format("L") },
+  DatFimVigencia: { name: "Fim da Vigência", format: (data: number) => moment.unix(Number(data)).format("L") },
+  DscPropriRegimePariticipacao: { name: "Proprietário do Regime de Participação" },
+  DscSubBacia: { name: "Sub-Bacia" },
+  DscMuninicpios: { name: "Municípios" }
+}
 
 const columnsDistribuida: { name: string, selector: string, format?: (data: never) => string }[] = []
 
-interface FilterableColumn {
-  id: string
-  type: "select" | "date" | "number" | "boolean" | "multiSelect"
-  label: string
-  fixed?: boolean
+const filterableColumns: Record<string, string> = {
+  DscMuninicpios: "multiSelect",
+  SigTipoGeracao: "multiSelect",
+  DscFaseUsina: "multiSelect",
+  DscOrigemCombustivel: "multiSelect",
+  DscFonteCombustivel: "multiSelect",
+  MdaPotenciaOutorgadaKw: "number",
+  MdaPotenciaFiscalizadaKw: "number",
+  MdaGarantiaFisicaKw: "number",
+  IdcGeracaoQualificada: "boolean",
+  DatInicioVigencia: "date",
+  DatFimVigencia: "date"
 }
 
-const filterableColumns: FilterableColumn[] = [
-  { id: "uf", type: "select", label: "UF", fixed: true },
-  { id: "municipio", type: "multiSelect", label: "Municípios" },
-  { id: "tipoGeracao", type: "multiSelect", label: "Tipos de Geração" },
-  { id: "faseUsina", type: "multiSelect", label: "Fases da Usina" },
-  { id: "origemCombustivel", type: "multiSelect", label: "Origens do Combustível" },
-  { id: "fonteCombustivel", type: "multiSelect", label: "Fontes do Combustível" },
-  { id: "potenciaOutorgada", type: "number", label: "Potência Outorgada" },
-  { id: "potenciaFiscalizada", type: "number", label: "Potência Fiscalizada" },
-  { id: "garantiaFisica", type: "number", label: "Garantia Física" },
-  { id: "geracaoQualificada", type: "boolean", label: "Geração Qualificada" },
-  { id: "inicioVigencia", type: "date", label: "Início da Vigência" },
-  { id: "fimVigencia", type: "date", label: "Fim da Vigência" },
-  { id: "proprietarioRegimeParticipacao", type: "select", label: "Proprietário do Regime de Participação" },
-  { id: "subBacia", type: "select", label: "Sub-Bacia" }
-]
+const filterFiledsType: Record<string, string[]> = {
+  multiSelect: ["in", "nin"],
+  select: ["eq"],
+  number: ["eq", "neq", "gte", "lte"],
+  date: ["eq", "gte", "lte"]
+}
 
 const schema = z.object({
   filters: z.array(
     z.object({
-      id: z.string(),
-      comparator: z.enum(["eq", "neq", "gt", "lt", "gte", "lte", "in", "nin"]),
+      column: z.string().nullable(),
+      comparator: z.enum(["eq", "neq", "gte", "lte", "in", "nin"]).nullable(),
       value: z.union([
         z.string(),
         z.array(z.string()),
         z.number(),
         z.boolean()
-      ])
+      ]).nullable()
     })
   )
 })
+
+const comparatorLabels = {
+  eq: "Igual a",
+  neq: "Diferente de",
+  gte: "Maior ou igual a",
+  lte: "Menor ou igual a",
+  in: "Igual a",
+  nin: "Diferente de"
+}
 
 type Filter = z.infer<typeof schema>
 
@@ -145,10 +153,10 @@ export default () => {
   const { search } = useLocation()
   const base = new URLSearchParams(search).get("base") ?? "centralizada"
 
-  let columns = columnsCentralizada
+  let columns = Object.keys(columnsCentralizada)
 
   if (base === "distribuida") {
-    columns = columnsDistribuida
+    columns = Object.keys(columnsDistribuida)
   }
 
   const filterForm = useForm<Filter>({
@@ -159,17 +167,20 @@ export default () => {
     }
   })
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields: filters, append, remove } = useFieldArray({
     control: filterForm.control,
     name: "filters"
   })
 
-  const { data: infos } = useSuspenseQuery<{
+  const currentFilters = filterForm.watch("filters")
+
+  const { data: fetchedInfos } = useSuspenseQuery<{
     ufs: string[],
-    tipos_geracao: string[],
-    fases_usina: string[],
-    origens_combustivel: string[],
-    fontes_combustivel: string[]
+    SigTipoGeracao: string[],
+    DscFaseUsina: string[],
+    DscOrigemCombustivel: string[],
+    NomFonteCombustivel: string[],
+    DscMuninicpios: string[]
   }>({
     queryKey: ["infos", base],
     queryFn: async () => {
@@ -181,41 +192,27 @@ export default () => {
 
       return {
         ufs: data[0],
-        tipos_geracao: data[1],
-        fases_usina: data[2],
-        origens_combustivel: data[3],
-        fontes_combustivel: data[4]
+        SigTipoGeracao: data[1],
+        DscFaseUsina: data[2],
+        DscOrigemCombustivel: data[3],
+        NomFonteCombustivel: data[4],
+        DscMuninicpios: []
       }
     }
   })
+
+  const [infos, setInfos] = useState<Record<string, string[]>>(fetchedInfos)
 
   const [data, setData] = useState<Dado[]>([])
   const [pageSize, setPageSize] = useQueryParam("items", withDefault(NumberParam, 10))
   const [currentPage, setCurrentPage] = useQueryParam("pagina", withDefault(NumberParam, 0))
   const [state, setState] = useQueryParam("estado", withDefault(StringParam, "RN"))
   const [totalItems, setTotalItems] = useState(0)
-  const [querySelectedTiposGeracao, setSelectedTiposGeracao] = useQueryParam("tipoGeracao", withDefault(ArrayParam, []))
-  const selectedTiposGeracao = useMemo<string[]>(() => querySelectedTiposGeracao.filter(tipo => tipo !== null) as string[], [querySelectedTiposGeracao])
-  const [querySelectedFasesUsina, setSelectedFasesUsina] = useQueryParam("faseUsina", withDefault(ArrayParam, []))
-  const selectedFasesUsina = useMemo<string[]>(() => querySelectedFasesUsina.filter(fase => fase !== null) as string[], [querySelectedFasesUsina])
-  const [querySelectedOrigensCombustivel, setSelectedOrigensCombustivel] = useQueryParam("origemCombustivel", withDefault(ArrayParam, []))
-  const selectedOrigensCombustivel = useMemo<string[]>(() => querySelectedOrigensCombustivel.filter(origem => origem !== null) as string[], [querySelectedOrigensCombustivel])
-  const [querySelectedFontesCombustivel, setSelectedFontesCombustivel] = useQueryParam("fonteCombustivel", withDefault(ArrayParam, []))
-  const selectedFontesCombustivel = useMemo<string[]>(() => querySelectedFontesCombustivel.filter(font => font !== null) as string[], [querySelectedFontesCombustivel])
-  const [querySelectedMunicipios, setSelectedMunicipios] = useQueryParam("municipio", withDefault(ArrayParam, []))
-  const selectedMunicipios = useMemo<string[]>(() => querySelectedMunicipios.filter(municipio => municipio !== null) as string[], [querySelectedMunicipios])
   const [graphs, setGraphs] = useState<{ name: string, url: string }[]>([])
 
   const pages = usePagination({ currentPage, pageSize, totalCount: totalItems })
 
-  const paramsString = new URLSearchParams([
-    ["uf", state],
-    ...selectedTiposGeracao.map(tipo => ["tipo", tipo]),
-    ...selectedFasesUsina.map(fase => ["fase", fase]),
-    ...selectedOrigensCombustivel.map(origem => ["origem", origem]),
-    ...selectedFontesCombustivel.map(fonte => ["fonte", fonte]),
-    ...selectedMunicipios.map(municipio => ["municipio", municipio])
-  ]).toString()
+  const [searchString, setSearchString] = useState(`SigUFPrincipal__eq=${state}`)
 
   const { data: empreendimentos } = useQuery<{ count: number, records: Dado[] }>({
     queryKey: [
@@ -223,13 +220,13 @@ export default () => {
       base,
       currentPage,
       pageSize,
-      paramsString
+      searchString
     ],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const data = unpack(
         new Uint8Array(
-          await request(`/dados/${base}/?${paramsString}&limit=${pageSize}&page=${currentPage}`).then(res => res.arrayBuffer()) as ArrayBufferLike
+          await request(`/dados/${base}/?${searchString}&limit=${pageSize}&page=${currentPage}`).then(res => res.arrayBuffer()) as ArrayBufferLike
         )
       )
 
@@ -272,10 +269,17 @@ export default () => {
     queryFn: async () =>
       unpack(
         new Uint8Array(
-          await request(`/dados/${base}/municipios/?ufs=${state}`).then(res => res.arrayBuffer()) as ArrayBufferLike
+          await request(`/dados/${base}/municipios/?SigUFPrincipal__eq=${state}`).then(res => res.arrayBuffer()) as ArrayBufferLike
         )
       )
   })
+
+  useEffect(() => {
+    setInfos(infos => ({
+      ...infos,
+      DscMuninicpios: municipios
+    }))
+  }, [municipios])
 
   const [querySelectedColumns, setSelectedColumns] = useQueryParam("coluna", withDefault(ArrayParam, []))
   const selectedColumns = useMemo<string[]>(() => querySelectedColumns.filter(column => column !== null) as string[], [querySelectedColumns])
@@ -286,10 +290,6 @@ export default () => {
       setTotalItems(empreendimentos.count)
     }
   }, [empreendimentos])
-
-  useEffect(() => {
-    setSelectedMunicipios(selectedMunicipios => selectedMunicipios.filter(municipio => municipios.includes(municipio)))
-  }, [municipios])
 
   useEffect(() => {
     if (currentPage > Math.floor(totalItems / pageSize)) {
@@ -311,21 +311,32 @@ export default () => {
   const visibleColumns = useMemo(
     () => columns.filter(
       column =>
-        (selectedColumns.length > 0 ? selectedColumns : columns.map(column => column.selector))
-          .includes(column.selector)
+        (selectedColumns.length > 0 ? selectedColumns : columns)
+          .includes(column)
     ),
     [selectedColumns]
   )
 
-  const args = {
-    ufs: infos.ufs,
-    tiposGeracao: infos.tipos_geracao,
-    fasesUsina: infos.fases_usina,
-    origensCombustivel: infos.origens_combustivel,
-    fontesCombustivel: infos.fontes_combustivel,
-    municipios,
-    search: paramsString
-  }
+  const onFilter = filterForm.handleSubmit(data => {
+    let searchString = data.filters
+      .filter(filter => filter.column && filter.comparator && filter.value !== null)
+      .flatMap(filter => {
+        if (Array.isArray(filter.value)) {
+          return filter.value.map(valueItem => `${filter.column}__${filter.comparator}=${encodeURIComponent(valueItem)}`)
+        } else {
+          return `${filter.column}__${filter.comparator}=${encodeURIComponent(filter.value)}`
+        }
+      })
+      .join("&")
+
+    if (searchString.length > 0) {
+      searchString += "&"
+    }
+
+    searchString += `SigUFPrincipal__eq=${state}`
+
+    setSearchString(searchString)
+  })
 
   return (
     <DefaultLayout>
@@ -333,75 +344,111 @@ export default () => {
         <h1 className="text-2xl font-bold mb-4">Resultados</h1>
         <h2 className="text-xl font-bold">Colunas</h2>
           <MultiSelect
-            entries={columns.map(column => ({ label: column.name, value: column.selector }))}
+            entries={columns.map(column => ({ label: columnsCentralizada[column].name, value: column }))}
             selected={selectedColumns}
             onChange={setSelectedColumns}
             placeholder="Selecione as colunas"
             className="mt-2"
           />
         <h2 className="text-xl font-bold mt-4">Filtros</h2>
-        <div className="grid gap-2 mt-1 grid-cols-4">
-          <div>
-            <Label>UF</Label>
-            <Select value={state} onValueChange={setState}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {infos.ufs.map(uf => (
-                  <SelectItem key={uf} value={uf}>
-                    {uf}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Municípios</Label>
-            <MultiSelect
-              entries={municipios.sort().map(municipio => ({ label: municipio, value: municipio }))}
-              selected={selectedMunicipios}
-              onChange={setSelectedMunicipios}
-              placeholder="Municípios"
-            />
-          </div>
-          <div>
-            <Label>Tipos de Geração</Label>
-            <MultiSelect
-              entries={infos.tipos_geracao.map(tipo => ({ label: tipo, value: tipo }))}
-              selected={selectedTiposGeracao}
-              onChange={setSelectedTiposGeracao}
-              placeholder="Tipos de Geração"
-            />
-          </div>
-          <div>
-            <Label>Fases da Usina</Label>
-            <MultiSelect
-              entries={infos.fases_usina.map(fase => ({ label: fase, value: fase }))}
-              selected={selectedFasesUsina}
-              onChange={setSelectedFasesUsina}
-              placeholder="Fases da Usina"
-            />
-          </div>
-          <div>
-            <Label>Origens do Combustível</Label>
-            <MultiSelect
-              entries={infos.origens_combustivel.map(origem => ({ label: origem, value: origem }))}
-              selected={selectedOrigensCombustivel}
-              onChange={setSelectedOrigensCombustivel}
-              placeholder="Origens do Combustível"
-            />
-          </div>
-          <div>
-            <Label>Fontes do Combustível</Label>
-            <MultiSelect
-              entries={infos.fontes_combustivel.map(font => ({ label: font, value: font }))}
-              selected={selectedFontesCombustivel}
-              onChange={setSelectedFontesCombustivel}
-              placeholder="Fontes do Combustível"
-            />
-          </div>
+        <div className="w-60">
+          <Label>UF</Label>
+          <Select value={state} onValueChange={setState}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {infos.ufs.map(uf => (
+                <SelectItem key={uf} value={uf}>
+                  {uf}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+        <Form {...filterForm}>
+          <form onSubmit={onFilter}>
+            {filters.map((filter, index) => (
+              <div className="grid grid-cols-4 gap-x-4 gap-y-2 max-w-[50rem]">
+                <FormField
+                  control={filterForm.control}
+                  name={`filters.${index}.column`}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Coluna</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione um valor" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.keys(filterableColumns).map(column => (
+                            <SelectItem key={`${filter.id}-${column}`} value={column}>{columnsCentralizada[column].name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                {currentFilters[index].column !== null && (
+                  <FormField
+                    control={filterForm.control}
+                    name={`filters.${index}.comparator`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Condição</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione um valor" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {filterFiledsType[filterableColumns[currentFilters[index].column]]?.map(column => (
+                              <SelectItem key={`${filter.id}-${column}`} value={column}>{comparatorLabels[column]}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+                {currentFilters[index].comparator !== null && (
+                  <FormField
+                    control={filterForm.control}
+                    name={`filters.${index}.value`}
+                    render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>Valor(es)</FormLabel>
+                        {{
+                          multiSelect: () => (
+                            <MultiSelect onChange={field.onChange} entries={infos[currentFilters[index].column].map(info => ({ label: info, value: info }))} selected={field.value as string[] | null || []} />
+                          ),
+                          number: () => (
+                            <Input type="number" {...field} value={field.value as number} />
+                          ),
+                          date: () => (
+                            <Input type="date" {...field} value={field.value as number} />
+                          ),
+                        }[filterableColumns[currentFilters[index].column]]()}
+                      </FormItem>
+                    )}
+                  />
+                )}
+                <div className="flex pt-8">
+                  <Button variant="outline" size="icon" type="button" onClick={() => remove(index)}>
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button variant="outline" type="button" onClick={() => append({ column: null, comparator: null, value: null })} className="mt-5">Adicionar</Button>
+            <Button type="submit" className="mt-5 ml-2">Salvar filtro</Button>
+          </form>
+        </Form>
         <div className="flex items-center pb-4 mt-4">
           <div>
             <Label>Quantidade de linhas</Label>
@@ -425,8 +472,8 @@ export default () => {
                 <TableHeader className="sticky top-0 bg-secondary">
                   <TableRow>
                     {visibleColumns.map(column => (
-                      <TableHead key={column.name} className="whitespace-nowrap">
-                        {column.name}
+                      <TableHead key={`column-${column}`} className="whitespace-nowrap">
+                        {columnsCentralizada[column].name}
                       </TableHead>
                     ))}
                   </TableRow>
@@ -438,8 +485,8 @@ export default () => {
                         key={row._id}
                       >
                         {visibleColumns.map(column => (
-                          <TableCell key={column.name} className="whitespace-nowrap">
-                            {row[column.selector as never] !== null ? (column.format ? column.format(row[column.selector as never]) : row[column.selector as never]) : "-"}
+                          <TableCell key={column} className="whitespace-nowrap">
+                            {row[column as never] !== null ? (columnsCentralizada[column].format ? columnsCentralizada[column].format(row[column as never]) : row[column as never]) : "-"}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -497,22 +544,19 @@ export default () => {
           {Object.entries(charts).map(([key, value]) => (
             <Label key={key} className="text-center flex items-center justify-center gap-1">
               <Checkbox
-                checked={graphs.some(g => g.url === value.getUrl(args))}
+                checked={graphs.some(g => g.url === value.url)}
                 onCheckedChange={checked =>
                   setGraphs(graphs =>
                     checked
                       ? [
                           ...graphs,
-                          {
-                            name: value.getTitle(args),
-                            url: value.getUrl(args)
-                          }
+                          value
                         ]
-                      : graphs.filter(g => g.url !== value.getUrl(args))
+                      : graphs.filter(g => g.url !== value.url)
                   )
                 }
               />
-              {value.getTitle(args)}
+              {value.name}
             </Label>
           ))}
         </div>
@@ -523,7 +567,7 @@ export default () => {
             {graphs.map(graph => (
               <div key={graph.url} className="flex flex-col gap-2">
                 <Label className="text-center text-lg mt-2">{graph.name}</Label>
-                <Image src={`${graph.url}?${paramsString}`} alt={graph.name} />
+                <Image src={`${graph.url}?${searchString}`} alt={graph.name} />
               </div>
             ))}
           </Masonry>
@@ -531,12 +575,12 @@ export default () => {
         <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios</h1>
         <div className="flex items-center space-x-2">
           <RelatoryDialog
-            url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_pdf?${paramsString}`}
+            url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_pdf?${searchString}`}
             filename="relatorio.pdf"
             title="Emitir relatório em PDF"
           />
           <RelatoryDialog
-            url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_xlsx?${paramsString}`}
+            url={`${import.meta.env.VITE_BACKEND_URL}/dados/${base}/relatorio_xlsx?${searchString}`}
             filename="relatorio.xlsx"
             title="Emitir relatório em XLSX"
           />

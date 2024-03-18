@@ -12,7 +12,7 @@ import {
   FormMessage
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { useState } from "react"
 import { toast } from "sonner"
 import { useMutation } from "@tanstack/react-query"
@@ -33,7 +33,9 @@ export default () => {
     }
   })
 
+  const { state } = useLocation()
   const navigate = useNavigate()
+  const { from = "/" } = state || {};
 
   const [loading, setLoading] = useState(false)
 
@@ -78,7 +80,7 @@ export default () => {
     }
 
     toast.success("Login efetuado com sucesso")
-    navigate("/")
+    navigate(from)
   })
 
   return (
