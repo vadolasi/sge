@@ -113,7 +113,8 @@ const filterableColumns: Record<string, string> = {
   MdaGarantiaFisicaKw: "number",
   IdcGeracaoQualificada: "boolean",
   DatInicioVigencia: "date",
-  DatFimVigencia: "date"
+  DatFimVigencia: "date",
+  DatEntradaOperacao: "date"
 }
 
 const filterFiledsType: Record<string, string[]> = {
@@ -342,7 +343,7 @@ export default () => {
     <DefaultLayout>
       <div className="p-12">
         <h1 className="text-2xl font-bold mb-4">Resultados</h1>
-        <h2 className="text-xl font-bold">Colunas</h2>
+        <h2 className="text-xl font-bold">Colunas (em tela)</h2>
           <MultiSelect
             entries={columns.map(column => ({ label: columnsCentralizada[column].name, value: column }))}
             selected={selectedColumns}
@@ -350,7 +351,7 @@ export default () => {
             placeholder="Selecione as colunas"
             className="mt-2"
           />
-        <h2 className="text-xl font-bold mt-4">Filtros</h2>
+        <h2 className="text-xl font-bold mt-4">Filtros (para relatório)</h2>
         <div className="w-60">
           <Label>UF</Label>
           <Select value={state} onValueChange={setState}>
@@ -425,13 +426,13 @@ export default () => {
                       <FormLabel>Valor(es)</FormLabel>
                         {{
                           multiSelect: () => (
-                            <MultiSelect onChange={field.onChange} entries={infos[currentFilters[index].column].map(info => ({ label: info, value: info }))} selected={field.value as string[] | null || []} />
+                            <MultiSelect onChange={field.onChange} entries={infos[currentFilters[index].column].sort().map(info => ({ label: info, value: info }))} selected={field.value as string[] | null || []} />
                           ),
                           number: () => (
                             <Input type="number" {...field} value={field.value as number} />
                           ),
                           date: () => (
-                            <Input type="date" {...field} value={field.value as number} />
+                            <Input type="date" {...field} onChange={ev => field.onChange(new Date(ev.currentTarget.value).getTime())} value={field.value as number} />
                           ),
                         }[filterableColumns[currentFilters[index].column]]()}
                       </FormItem>
@@ -514,7 +515,7 @@ export default () => {
             <Pagination>
               <PaginationContent>
                 <PaginationItem>
-                  <Button variant="ghost" onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 0}>
+                  <Button variant="ghost" onClick={() => setCurrentPage(currentPage => currentPage - 1)} disabled={currentPage === 0}>
                     <ArrowLeft />
                   </Button>
                 </PaginationItem>
@@ -531,7 +532,7 @@ export default () => {
                   </PaginationItem>
                 ))}
                 <PaginationItem>
-                  <Button variant="ghost" onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === Math.floor(totalItems / pageSize)}>
+                  <Button variant="ghost" onClick={() => setCurrentPage(currentPage => currentPage + 1)} disabled={currentPage === Math.floor(totalItems / pageSize)}>
                     <ArrowRight />
                   </Button>
                 </PaginationItem>
@@ -539,8 +540,8 @@ export default () => {
             </Pagination>
           </div>
         </div>
-        <h1 className="text-2xl font-bold mt-4 mb-2">Gráficos</h1>
-        <div className="flex gap-2">
+        <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios pré-definidos</h1>
+        <div className="grid gap-2 grid-cols-3">
           {Object.entries(charts).map(([key, value]) => (
             <Label key={key} className="text-center flex items-center justify-center gap-1">
               <Checkbox
