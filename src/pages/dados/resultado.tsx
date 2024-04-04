@@ -91,8 +91,8 @@ const columnsCentralizada: Record<string, { name: string, format?: (data: never)
   MdaPotenciaFiscalizadaKw: { name: "Potência Fiscalizada (kW)" },
   MdaGarantiaFisicaKw: { name: "Garantia Física (kW)" },
   IdcGeracaoQualificada: { name: "Geração Qualificada", format: (data: boolean) => data ? "Sim" : "Não" },
-  NumCoordNEmpreendimento: { name: "Coordenada N do Empreendimento" },
-  NumCoordEEmpreendimento: { name: "Coordenada E do Empreendimento" },
+  NumCoordNEmpreendimento: { name: "Latitude" },
+  NumCoordEEmpreendimento: { name: "Longitude" },
   DatInicioVigencia: { name: "Início da Vigência", format: (data: number) => moment.unix(Number(data)).format("L") },
   DatFimVigencia: { name: "Fim da Vigência", format: (data: number) => moment.unix(Number(data)).format("L") },
   DscPropriRegimePariticipacao: { name: "Proprietário do Regime de Participação" },
@@ -139,6 +139,21 @@ const schema = z.object({
   )
 })
 
+type Filter = z.infer<typeof schema>
+
+const graphSchema = z.object({
+  labels: z.string().nullable(),
+  values: z.string().nullable()
+})
+
+type Graph = z.infer<typeof graphSchema>
+
+const mapSchema = z.object({
+  values: z.string().nullable(),
+})
+
+type Map = z.infer<typeof mapSchema>
+
 const comparatorLabels = {
   eq: "Igual a",
   neq: "Diferente de",
@@ -147,8 +162,6 @@ const comparatorLabels = {
   in: "Igual a",
   nin: "Diferente de"
 }
-
-type Filter = z.infer<typeof schema>
 
 export default () => {
   const { search } = useLocation()
@@ -174,6 +187,28 @@ export default () => {
   })
 
   const currentFilters = filterForm.watch("filters")
+
+  const [oldFilters, setOldFilters] = useState(JSON.stringify(currentFilters))
+
+  const graphForm = useForm<Graph>({
+    resolver: zodResolver(graphSchema),
+    mode: "onBlur"
+  })
+
+  const currentGraph = graphForm.watch()
+
+  const [oldGraph, setOldGraph] = useState(JSON.stringify(currentGraph))
+  const [graphUrl, setGraphUrl] = useState("")
+
+  const mapForm = useForm<Map>({
+    resolver: zodResolver(mapSchema),
+    mode: "onBlur"
+  })
+
+  const currentMap = mapForm.watch("values")
+
+  const [oldMap, setOldMap] = useState(JSON.stringify(currentMap))
+  const [mapUrl, setMapUrl] = useState("")
 
   const { data: fetchedInfos } = useSuspenseQuery<{
     ufs: string[],
@@ -337,6 +372,28 @@ export default () => {
     searchString += `SigUFPrincipal__eq=${state}`
 
     setSearchString(searchString)
+
+    setOldFilters(JSON.stringify(data))
+  })
+
+  const onGraph = graphForm.handleSubmit(data => {
+    setOldGraph(JSON.stringify(data))
+
+    if (data.labels && data.values) {
+      setGraphUrl(`${import.meta.env.VITE_BACKEND_URL}/dados/centralizada/dynamic/?labels=${data.labels}&values=${data.values}`)
+    } else {
+      setGraphUrl("")
+    }
+  })
+
+  const onMap = mapForm.handleSubmit(({ values }) => {
+    setOldMap(values ?? "")
+
+    if (values) {
+      setMapUrl(`${import.meta.env.VITE_BACKEND_URL}/dados/centralizada/map_dynamic/?values=${values}`)
+    } else {
+      setMapUrl("")
+    }
   })
 
   return (
@@ -447,7 +504,7 @@ export default () => {
               </div>
             ))}
             <Button variant="outline" type="button" onClick={() => append({ column: null, comparator: null, value: null })} className="mt-5">Adicionar</Button>
-            <Button type="submit" className="mt-5 ml-2">Salvar filtro</Button>
+            <Button type="submit" className="mt-5 ml-2" disabled={JSON.stringify(currentFilters) === oldFilters}>Salvar filtro</Button>
           </form>
         </Form>
         <div className="flex items-center pb-4 mt-4">
@@ -540,6 +597,92 @@ export default () => {
             </Pagination>
           </div>
         </div>
+        <h1 className="text-2xl font-bold mt-4 mb-2">Gráfico</h1>
+        <Form {...graphForm}>
+          <form onSubmit={onGraph}>
+            <FormField
+              control={graphForm.control}
+              name="labels"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Eixo X</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um valor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {Object.keys(columnsCentralizada).map(column => (
+                        <SelectItem key={`graph-${column}`} value={column}>{columnsCentralizada[column].name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={graphForm.control}
+              name="values"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Eixo Y</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um valor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="*">[Quantidade]</SelectItem>
+                      {Object.keys(columnsCentralizada).map(column => (
+                        <SelectItem key={`graph-${column}`} value={column}>{columnsCentralizada[column].name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {graphUrl !== ""  && (
+              <Image src={`${graphUrl}&${searchString}`} alt="Gráfico" />
+            )}
+            <Button type="submit" className="mt-5 ml-2" disabled={JSON.stringify(currentGraph) === oldGraph}>Salvar gráfico</Button>
+          </form>
+        </Form>
+        <h1 className="text-2xl font-bold mt-4 mb-2">Mapa</h1>
+        <Form {...mapForm}>
+          <form onSubmit={onMap}>
+            <FormField
+              control={mapForm.control}
+              name="values"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Coluna</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um valor" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="*">[Quantidade]</SelectItem>
+                      {Object.keys(columnsCentralizada).map(column => (
+                        <SelectItem key={`map-${column}`} value={column}>{columnsCentralizada[column].name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {mapUrl !== ""  && (
+              <Image src={`${mapUrl}&${searchString}`} alt="Mapa" />
+            )}
+            <Button type="submit" className="mt-5 ml-2" disabled={currentMap === oldMap}>Salvar mapa</Button>
+          </form>
+        </Form>
         <h1 className="text-2xl font-bold mt-4 mb-2">Relatórios pré-definidos</h1>
         <div className="grid gap-2 grid-cols-3">
           {Object.entries(charts).map(([key, value]) => (
